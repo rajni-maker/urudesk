@@ -22,7 +22,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "PixelSupport",
-  description: "AI-assisted helpdesk for agencies and their clients.",
+  description: "Simple helpdesk for raising and tracking support tickets.",
 };
 
 export default function RootLayout({

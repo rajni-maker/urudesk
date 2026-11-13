@@ -30,12 +30,12 @@ export default function LoginForm({ linkError }: { linkError: boolean }) {
       <AuthHero
         headline={
           <>
-            Your queue,
+            Your tickets,
             <br />
-            already triaged
+            all in one place
           </>
         }
-        subcopy="Pick up where you left off — tickets sorted, summaries written and replies drafted while you were away."
+        subcopy="Raise a ticket, track its status and reply to the team — every answer comes from a real person."
         cards={LOGIN_CARDS}
       />
 

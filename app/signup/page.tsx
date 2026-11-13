@@ -40,12 +40,12 @@ export default function SignupPage() {
       <AuthHero
         headline={
           <>
-            Support that thinks
+            Get help,
             <br />
-            before you type
+            without the back-and-forth
           </>
         }
-        subcopy="AI triages, summarises and drafts. Your team reviews and sends — every reply still has a human behind it."
+        subcopy="Raise a ticket, track it, get a reply. One queue for your requests and one place for the team to answer."
       />
 
       {/* ================= Form panel ================= */}

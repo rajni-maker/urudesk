@@ -311,10 +311,10 @@ export default function HeroIllustration() {
         <circle cx="175" cy="270" r="2" fill="#10B981" opacity="0.8" />
         <text x="184" y="273" fill="rgba(255,255,255,0.75)" fontSize="7" fontWeight="700">Support Dashboard</text>
 
-        {/* Widget: AI Summary */}
+        {/* Widget: Latest reply */}
         <rect x="158" y="282" width="70" height="30" rx="4" fill="rgba(139,92,246,0.18)" stroke="rgba(139,92,246,0.4)" strokeWidth="0.8" />
         <path d="M165 289 a3 3 0 0 0 4.5 4.5 4.5 4.5 0 1 1-4.5-4.5Z" fill="none" stroke="#C4B5FD" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
-        <text x="174" y="293" fill="#DDD6FE" fontSize="6" fontWeight="600">AI Summary</text>
+        <text x="174" y="293" fill="#DDD6FE" fontSize="6" fontWeight="600">Latest Reply</text>
         <line x1="164" y1="300" x2="221" y2="300" stroke="rgba(255,255,255,0.3)" strokeWidth="1.4" strokeLinecap="round" />
         <line x1="164" y1="305" x2="207" y2="305" stroke="rgba(255,255,255,0.18)" strokeWidth="1.4" strokeLinecap="round">
           <animate attributeName="x2" values="164;207;207" dur="4s" repeatCount="indefinite" />
