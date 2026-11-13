@@ -4,10 +4,11 @@
 // SLACK_WEBHOOK_URL is unset the functions are silent no-ops, and network
 // errors are swallowed. A Slack outage must never break a ticket action.
 //
-// Only three events post here, by design:
+// Only two events post here, by design:
 //   1. a new ticket is created
-//   2. a ticket is assigned to a support rep
-//   3. a customer (company contact) replies
+//   2. a ticket is assigned
+// Admins troubleshoot together by threading on the alert and @-mentioning
+// each other in Slack itself.
 // Internal replies and status changes stay in email only, to keep the channel
 // signal-heavy.
 
@@ -44,12 +45,6 @@ function esc(s: string): string {
   return s.replace(/[&<>]/g, (c) =>
     c === "&" ? "&amp;" : c === "<" ? "&lt;" : "&gt;",
   );
-}
-
-// Reply bodies can be long; keep the channel readable.
-function truncate(s: string, max = 300): string {
-  const clean = s.replace(/\s+/g, " ").trim();
-  return clean.length > max ? `${clean.slice(0, max - 1)}…` : clean;
 }
 
 // Shared message shape: a headline, optional context lines, and a button
@@ -96,7 +91,6 @@ function build(
 export async function slackNewTicket(opts: {
   ticketId: string;
   subject: string;
-  companyName?: string | null;
   priority: string;
   createdBy: string;
 }) {
@@ -106,7 +100,6 @@ export async function slackNewTicket(opts: {
     build(
       `🎫 New ticket — ${subject}`,
       [
-        { label: "Company", value: esc(opts.companyName || "—") },
         { label: "Priority", value: esc(opts.priority) },
         { label: "Raised by", value: esc(opts.createdBy) },
       ],
@@ -137,33 +130,4 @@ export async function slackTicketAssigned(opts: {
       "Open ticket",
     ),
   );
-}
-
-// ---- 3. Customer reply received -------------------------------------------
-
-export async function slackCustomerReply(opts: {
-  ticketId: string;
-  subject: string;
-  fromName: string;
-  companyName?: string | null;
-  body: string;
-}) {
-  const subject = esc(opts.subject);
-  const blocks = build(
-    `💬 Customer reply — ${subject}`,
-    [
-      { label: "From", value: esc(opts.fromName) },
-      { label: "Company", value: esc(opts.companyName || "—") },
-    ],
-    `/tickets/${opts.ticketId}`,
-    "Reply in PixelSupport",
-  );
-
-  // Quote the reply itself between the fields and the button.
-  blocks.splice(2, 0, {
-    type: "section",
-    text: { type: "mrkdwn", text: `>${esc(truncate(opts.body))}` },
-  });
-
-  await post(`Customer reply on: ${subject}`, blocks);
 }

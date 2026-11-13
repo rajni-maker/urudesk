@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 // Refreshes the Supabase auth session on every request so Server Components
-// always see a valid session. (Auth-route gating is added in a later step.)
+// always see a valid session, and guards routes (signed-out and non-admin).
 // Next.js 16 renamed the "middleware" convention to "proxy".
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -38,9 +38,35 @@ export async function proxy(request: NextRequest) {
   );
 
   // IMPORTANT: touch getUser() to trigger the session refresh.
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const path = request.nextUrl.pathname;
+  const under = (prefixes: string[]) =>
+    prefixes.some((p) => path === p || path.startsWith(`${p}/`));
+
+  if (!user && !under(PUBLIC_PATHS)) return redirectKeepingCookies(request, response, "/login");
+
+  if (user && under(ADMIN_PATHS)) {
+    const { data } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+    if (data?.role !== "admin") return redirectKeepingCookies(request, response, "/tickets");
+  }
 
   return response;
+}
+
+const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password", "/auth"];
+const ADMIN_PATHS = ["/dashboard", "/team"];
+
+// A redirect must carry any cookies the session refresh just set.
+function redirectKeepingCookies(request: NextRequest, response: NextResponse, to: string) {
+  const url = request.nextUrl.clone();
+  url.pathname = to;
+  url.search = "";
+  const redirect = NextResponse.redirect(url);
+  response.cookies.getAll().forEach((c) => redirect.cookies.set(c));
+  return redirect;
 }
 
 export const config = {

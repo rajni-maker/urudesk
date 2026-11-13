@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
-  Building2,
   Check,
   Lock,
   Mail,
@@ -12,7 +11,7 @@ import {
   Sparkles,
   UserRound,
 } from "lucide-react";
-import { signUp, type AuthState } from "@/app/auth/actions";
+import { signUp, type ResetState } from "@/app/auth/actions";
 import AuthHero from "@/components/auth/AuthHero";
 import Field from "@/components/auth/AuthField";
 import "@/components/auth/auth.css";
@@ -20,19 +19,19 @@ import "@/components/auth/auth.css";
 export default function SignupPage() {
   // useActionState wires the form to our server action and gives us back any
   // error message plus a "pending" flag while the request is in flight.
-  const [state, formAction, pending] = useActionState<AuthState, FormData>(
+  const [state, formAction, pending] = useActionState<ResetState, FormData>(
     signUp,
     null,
   );
 
   // Presentation only: when a submit finishes without an error the action is
-  // redirecting to /dashboard, so hold a success state on the button until this
+  // redirecting to /tickets, so hold a success state on the button until this
   // page unmounts. Never gates the form itself.
   const [succeeded, setSucceeded] = useState(false);
   const wasPending = useRef(false);
 
   useEffect(() => {
-    if (wasPending.current && !pending && !state?.error) setSucceeded(true);
+    if (wasPending.current && !pending && !state) setSucceeded(true);
     wasPending.current = pending;
   }, [pending, state]);
 
@@ -67,10 +66,10 @@ export default function SignupPage() {
 
           <div className="mb-8">
             <h1 className="text-[30px] font-bold leading-[1.15] tracking-[-0.025em] text-[#0F172A] sm:text-[34px] dark:text-white">
-              Create your organization
+              Create your account
             </h1>
             <p className="mt-2.5 text-[15px] leading-relaxed text-[#64748B] dark:text-[#94A3B8]">
-              Sets up your organization and makes you the Organization Admin.
+              Create your account to raise support tickets.
             </p>
           </div>
 
@@ -82,16 +81,6 @@ export default function SignupPage() {
               placeholder="Jane Doe"
               icon={UserRound}
               autoComplete="name"
-            />
-            <Field
-              label="Organization / agency name"
-              name="orgName"
-              type="text"
-              placeholder="Pixelmattic"
-              icon={Building2}
-              autoComplete="organization"
-              required
-              hint="The workspace your team and clients will belong to."
             />
             <Field
               label="Email"
@@ -112,13 +101,20 @@ export default function SignupPage() {
               required
             />
 
-            {state?.error && (
+            {state && "error" in state && (
               <p
                 role="alert"
                 className="ps-error flex items-start gap-2 rounded-xl border border-[#FECDD3] bg-[#FFF1F2] px-3.5 py-3 text-[13px] font-medium text-[#BE123C] dark:border-[#4C1D24] dark:bg-[#2A1015] dark:text-[#FDA4AF]"
               >
                 <ShieldCheck className="mt-px h-4 w-4 shrink-0" strokeWidth={2} />
                 {state.error}
+              </p>
+            )}
+
+            {state && "success" in state && (
+              <p className="flex items-start gap-2 rounded-xl border border-[#A7F3D0] bg-[#ECFDF5] px-3.5 py-3 text-[13px] font-medium text-[#047857] dark:border-[#064E3B] dark:bg-[#052E22] dark:text-[#34D399]">
+                <Check className="mt-px h-4 w-4 shrink-0" strokeWidth={2} />
+                {state.success}
               </p>
             )}
 

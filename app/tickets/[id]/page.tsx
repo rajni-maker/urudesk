@@ -1,516 +1,182 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
+import AppShell from "@/components/dashboard/AppShell";
+import { requireProfile, displayName } from "@/lib/session";
+import { roleLabel } from "@/lib/roles";
 import {
-  ArrowLeft,
-  CalendarDays,
-  Clock,
-  Mail,
-  Sparkles,
-  Ticket as TicketIcon,
-  UserRound,
-} from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
-import DashboardNav from "@/components/dashboard/DashboardNav";
-import { initials, avatarGradient } from "@/components/dashboard/avatar";
-import ReplyForm from "./ReplyForm";
-import SuggestedStatus from "./SuggestedStatus";
-import StatusControl from "./StatusControl";
-import AssignControl from "./AssignControl";
-import TimeControl from "./TimeControl";
-import { isInternal, roleLabel, INTERNAL_ROLES } from "@/lib/roles";
-import {
-  STATUS_LABELS,
+  formatDateTime,
+  isStatus,
   STATUS_OPTIONS,
+  STATUS_LABELS,
   DARK_STATUS_STYLES,
+  PRIORITY_OPTIONS,
   PRIORITY_LABELS,
   DARK_PRIORITY_STYLES,
-  formatDateTime,
-  formatMinutes,
   type TicketStatus,
   type TicketPriority,
 } from "@/lib/tickets";
-import "@/components/dashboard/dark.css";
+import { addReply, assignTicket, changePriority, changeStatus } from "../actions";
 
-// Dot colour for a related ticket, keyed off its status.
-const STATUS_DOTS: Record<TicketStatus, string> = {
-  open: "bg-[#6366f1] shadow-[0_0_6px_rgba(99,102,241,0.4)]",
-  in_progress: "bg-[#f59e0b] shadow-[0_0_6px_rgba(245,158,11,0.4)]",
-  waiting_on_client: "bg-[#8b5cf6] shadow-[0_0_6px_rgba(139,92,246,0.4)]",
-  testing: "bg-[#06b6d4] shadow-[0_0_6px_rgba(6,182,212,0.4)]",
-  resolved: "bg-[#22c55e] shadow-[0_0_6px_rgba(34,197,94,0.4)]",
-  closed: "bg-[#4a4a6a]",
+type Person = { id: string; full_name: string; email: string; role: string } | null;
+type Ticket = {
+  id: string;
+  number: number;
+  subject: string;
+  body: string;
+  status: TicketStatus;
+  priority: TicketPriority;
+  created_at: string;
+  assignee_id: string | null;
+  client: Person;
+  assignee: Person;
+};
+type Reply = { id: string; body: string; created_at: string; author: Person };
+type Event = {
+  id: string;
+  kind: "status" | "assign";
+  from_value: string | null;
+  to_value: string | null;
+  created_at: string;
+  actor: Person;
 };
 
-export default async function TicketDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+const PERSON = "id, full_name, email, role";
+const label = (v: string | null) => (isStatus(v) ? STATUS_LABELS[v] : v ?? "—");
+
+export default async function TicketPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await createClient();
+  const { supabase, profile } = await requireProfile();
+  const admin = profile.role === "admin";
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  // Load the ticket, the current user's role, and the message thread together.
-  // RLS ensures a user can only load a ticket they're allowed to see.
-  const [{ data: ticket }, { data: profile }, { data: messages }, { data: reps }] =
-    await Promise.all([
-      supabase
-        .from("tickets")
-        .select(
-          "id, subject, description, status, priority, created_at, ai_summary, category, ai_suggested_tags, assigned_agent_id, client_id, company_id, time_spent_minutes, companies(name)",
-        )
-        .eq("id", id)
-        .single(),
-      supabase
-        .from("profiles")
-        .select("role, full_name, email")
-        .eq("id", user.id)
-        .single(),
-      supabase
-        .from("ticket_messages")
-        .select("id, body, sender_role, created_at")
-        .eq("ticket_id", id)
-        .order("created_at", { ascending: true }),
-      supabase
-        .from("profiles")
-        .select("id, full_name, email")
-        .in("role", INTERNAL_ROLES)
-        .order("full_name", { ascending: true }),
-    ]);
-
-  if (!ticket) notFound();
-
-  const internal = isInternal(profile?.role);
-  const companyName =
-    (ticket.companies as { name?: string } | null)?.name ?? null;
-  const companyId = ticket.company_id as string | null;
-
-  // A pending "looks resolved" suggestion, shown to internal staff only — the
-  // client shouldn't see the system second-guessing their own ticket. Ignored
-  // once the status has moved on, so a stale row can't resurface it.
-  //
-  // Read separately and tolerantly: migration 0008 adds this column, and a
-  // ticket must still render on a database where that hasn't been applied.
-  // Folding it into the select above would turn a missing column into a 404.
-  let suggestedStatus: TicketStatus | null = null;
-  if (internal) {
-    const { data: suggestion } = await supabase
+  const [{ data: ticket }, { data: replies }, { data: events }, { data: admins }] = await Promise.all([
+    supabase
       .from("tickets")
-      .select("ai_suggested_status")
+      .select(
+        `id, number, subject, body, status, priority, created_at, assignee_id, client:profiles!tickets_client_id_fkey(${PERSON}), assignee:profiles!tickets_assignee_id_fkey(${PERSON})`,
+      )
       .eq("id", id)
-      .single();
-    const raw = suggestion?.ai_suggested_status as string | null | undefined;
-    if (raw && raw !== ticket.status && STATUS_OPTIONS.includes(raw as TicketStatus)) {
-      suggestedStatus = raw as TicketStatus;
-    }
-  }
-
-  // Read-only sidebar data: who reported this, and the company's other tickets.
-  // Both are plain selects — separate from the ticket query because `tickets`
-  // has two foreign keys into `profiles` and the embed would be ambiguous.
-  const [{ data: reporter }, { data: related }] = await Promise.all([
-    ticket.client_id
-      ? supabase
-          .from("profiles")
-          .select("id, full_name, email")
-          .eq("id", ticket.client_id)
-          .single()
-      : Promise.resolve({ data: null }),
-    companyId
-      ? supabase
-          .from("tickets")
-          .select("id, subject, status")
-          .eq("company_id", companyId)
-          .neq("id", id)
-          .order("created_at", { ascending: false })
-          .limit(5)
-      : Promise.resolve({ data: null }),
+      .maybeSingle(),
+    supabase
+      .from("ticket_replies")
+      .select(`id, body, created_at, author:profiles!ticket_replies_author_id_fkey(${PERSON})`)
+      .eq("ticket_id", id)
+      .order("created_at"),
+    supabase
+      .from("ticket_events")
+      .select(`id, kind, from_value, to_value, created_at, actor:profiles!ticket_events_actor_id_fkey(${PERSON})`)
+      .eq("ticket_id", id)
+      .order("created_at"),
+    admin
+      ? supabase.from("profiles").select("id, full_name, email").eq("role", "admin").order("full_name")
+      : Promise.resolve({ data: [] as { id: string; full_name: string; email: string }[] }),
   ]);
 
-  // Support reps who can own this ticket, plus the current assignee's name.
-  const repList = (reps ?? []).map((r) => ({
-    id: r.id,
-    name: r.full_name || r.email || "Unnamed",
-  }));
-  const assignee = repList.find((r) => r.id === ticket.assigned_agent_id) ?? null;
-  const timeSpent = (ticket.time_spent_minutes as number) ?? 0;
-  const reporterName = reporter?.full_name || reporter?.email || null;
+  // RLS returns nothing for someone else's ticket, so that's a 404 rather than a leak.
+  if (!ticket) notFound();
+  const t = ticket as unknown as Ticket;
 
   return (
-    <div className="psd-shell min-h-screen bg-[#0a0a1a] font-[family-name:var(--font-inter)] text-[#f0f0f5] antialiased">
-      <div className="relative z-[1]">
-        <DashboardNav
-          name={profile?.full_name || profile?.email || user.email || "there"}
-          role={roleLabel(profile?.role)}
-          internal={internal}
-          isContact={profile?.role === "company_contact"}
-          current="tickets"
-        />
+    <AppShell profile={profile} current="tickets">
+      <Link href="/tickets" className="mb-4 inline-block text-sm text-[#a0a0b8] hover:text-[#f0f0f5]">
+        ← All tickets
+      </Link>
 
-        <main className="mx-auto max-w-[1400px] px-5 py-8 sm:px-8">
-          <Link
-            href="/tickets"
-            className="psd-in inline-flex items-center gap-1.5 text-[13px] font-medium text-[#6b6b8a] transition-colors hover:text-[#f0f0f5]"
-            style={{ "--psd-delay": "0.05s" } as React.CSSProperties}
-          >
-            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2.2} />
-            Back to tickets
-          </Link>
-
-          {/* ================= Ticket header ================= */}
-          <section
-            className="psd-in mb-7 mt-4"
-            style={{ "--psd-delay": "0.08s" } as React.CSSProperties}
-          >
-            <div className="mb-2 flex flex-wrap items-center gap-4">
-              <h1 className="psd-title text-[26px] font-bold leading-tight tracking-[-0.025em] sm:text-[32px]">
-                {ticket.subject}
-              </h1>
-              <div className="flex gap-2">
-                <Badge
-                  text={PRIORITY_LABELS[ticket.priority as TicketPriority]}
-                  className={DARK_PRIORITY_STYLES[ticket.priority as TicketPriority]}
-                />
-                <Badge
-                  text={STATUS_LABELS[ticket.status as TicketStatus]}
-                  className={DARK_STATUS_STYLES[ticket.status as TicketStatus]}
-                />
-              </div>
-            </div>
-
-            <p className="text-sm text-[#6b6b8a]">
-              {companyName &&
-                (internal && companyId ? (
-                  <>
-                    <Link
-                      href={`/companies/${companyId}`}
-                      className="text-[#a78bfa] hover:underline"
-                    >
-                      {companyName}
-                    </Link>
-                    {" · "}
-                  </>
-                ) : (
-                  <>
-                    <span className="text-[#a0a0b8]">{companyName}</span>
-                    {" · "}
-                  </>
-                ))}
-              Opened {formatDateTime(ticket.created_at)}
-              {internal && (
-                <>
-                  {" · "}
-                  {assignee ? (
-                    <>
-                      Assigned to{" "}
-                      <span className="text-[#a78bfa]">{assignee.name}</span>
-                    </>
-                  ) : (
-                    "Unassigned"
-                  )}
-                  {timeSpent > 0 && ` · ${formatMinutes(timeSpent)} logged`}
-                </>
-              )}
+      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+        <section className="flex flex-col gap-4">
+          <div className="psd-card rounded-2xl p-6">
+            <p className="text-[13px] text-[#6b6b8a]">
+              #{t.number} · {displayName(t.client)} · {formatDateTime(t.created_at)}
             </p>
-          </section>
-
-          {/* ================= Two column ================= */}
-          <div className="grid grid-cols-1 items-start gap-7 xl:grid-cols-[1fr_320px]">
-            {/* ---------- Left: request, AI, conversation, reply ---------- */}
-            <div className="flex flex-col gap-6">
-              {/* 1. The client's original request */}
-              <div
-                className="psd-in psd-panel rounded-[20px] border border-white/[0.06] bg-[#16162e] p-7"
-                style={{ "--psd-delay": "0.1s" } as React.CSSProperties}
-              >
-                <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.08em] text-[#6b6b8a]">
-                  Original Request
-                </p>
-                {ticket.description ? (
-                  <p className="whitespace-pre-wrap text-[15px] leading-[1.7] text-[#a0a0b8]">
-                    {ticket.description}
-                  </p>
-                ) : (
-                  <p className="text-[15px] italic text-[#4a4a6a]">
-                    No description provided.
-                  </p>
-                )}
-              </div>
-
-              {/* 2. AI summary — shown once triage has run on this ticket */}
-              {ticket.ai_summary && (
-                <div
-                  className="psd-in psd-ai rounded-[20px] border border-[#8b5cf6]/[0.15] p-7"
-                  style={{ "--psd-delay": "0.13s" } as React.CSSProperties}
-                >
-                  <div className="mb-3.5 flex items-center gap-2.5">
-                    <Sparkles className="h-[18px] w-[18px] text-[#a78bfa]" strokeWidth={2.2} />
-                    <span className="text-[15px] font-bold text-[#a78bfa]">
-                      AI summary
-                    </span>
-                    {ticket.category && (
-                      <span className="ml-auto rounded-full bg-[#8b5cf6]/[0.12] px-3 py-1 text-[11px] font-semibold text-[#a78bfa]">
-                        {ticket.category}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm leading-[1.7] text-[#a0a0b8]">
-                    {ticket.ai_summary}
-                  </p>
-                  {Array.isArray(ticket.ai_suggested_tags) &&
-                    ticket.ai_suggested_tags.length > 0 && (
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {ticket.ai_suggested_tags.map((tag: string) => (
-                        <span
-                          key={tag}
-                          className="rounded-full border border-[#8b5cf6]/[0.15] bg-[#8b5cf6]/[0.08] px-3 py-1.5 text-xs font-medium text-[#a78bfa]"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* 3. Conversation */}
-              <div
-                className="psd-in mt-2"
-                style={{ "--psd-delay": "0.16s" } as React.CSSProperties}
-              >
-                <h2 className="mb-4 text-sm font-bold tracking-[0.02em] text-[#f0f0f5]">
-                  Conversation
-                </h2>
-
-                {messages && messages.length > 0 ? (
-                  <div className="flex flex-col gap-4">
-                    {messages.map((m) => {
-                      const who = roleLabel(m.sender_role);
-                      return (
-                        <div
-                          key={m.id}
-                          className="psd-panel rounded-[20px] border border-white/[0.06] bg-[#16162e] px-6 py-5"
-                        >
-                          <div className="mb-2.5 flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-2.5">
-                              <span
-                                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white ${avatarGradient(m.sender_role ?? "unknown")}`}
-                              >
-                                {initials(who)}
-                              </span>
-                              <span className="text-[13px] font-semibold text-[#f0f0f5]">
-                                {who}
-                              </span>
-                            </div>
-                            <span className="shrink-0 text-[11px] text-[#4a4a6a]">
-                              {formatDateTime(m.created_at)}
-                            </span>
-                          </div>
-                          <p className="whitespace-pre-wrap pl-[42px] text-sm leading-relaxed text-[#a0a0b8]">
-                            {m.body}
-                          </p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="rounded-[20px] border border-dashed border-white/[0.08] bg-[#16162e] px-6 py-10 text-center text-sm text-[#4a4a6a]">
-                    No replies yet.
-                  </p>
-                )}
-              </div>
-
-              {/* 4. Reply box */}
-              <div
-                className="psd-in"
-                style={{ "--psd-delay": "0.19s" } as React.CSSProperties}
-              >
-                <ReplyForm ticketId={ticket.id} viewerRole={profile?.role} />
-              </div>
+            <h1 className="psd-title mt-1 text-[24px] font-bold">{t.subject}</h1>
+            <div className="mt-3 flex gap-2">
+              <span className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ${DARK_STATUS_STYLES[t.status]}`}>
+                {STATUS_LABELS[t.status]}
+              </span>
+              <span className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ${DARK_PRIORITY_STYLES[t.priority]}`}>
+                {PRIORITY_LABELS[t.priority]}
+              </span>
             </div>
-
-            {/* ---------- Right: sticky sidebar ---------- */}
-            <aside className="flex flex-col gap-6 xl:sticky xl:top-[84px]">
-              {/* Properties — internal staff only */}
-              {internal && (
-                <div
-                  className="psd-in psd-panel rounded-[20px] border border-white/[0.06] bg-[#16162e] p-6"
-                  style={{ "--psd-delay": "0.1s" } as React.CSSProperties}
-                >
-                  <h3 className="mb-5 text-[13px] font-bold uppercase tracking-[0.08em] text-[#6b6b8a]">
-                    Properties
-                  </h3>
-                  <div className="border-b border-white/[0.06] pb-4">
-                    {/* The AI's read on the client's last reply — a proposal
-                        sitting above the control that actually decides. */}
-                    {suggestedStatus && (
-                      <SuggestedStatus
-                        ticketId={ticket.id}
-                        suggested={suggestedStatus}
-                      />
-                    )}
-                    <StatusControl
-                      ticketId={ticket.id}
-                      current={ticket.status as TicketStatus}
-                    />
-                  </div>
-                  <div className="border-b border-white/[0.06] py-4">
-                    <AssignControl
-                      ticketId={ticket.id}
-                      current={ticket.assigned_agent_id as string | null}
-                      reps={repList}
-                    />
-                  </div>
-                  <div className="pt-4">
-                    <TimeControl ticketId={ticket.id} totalMinutes={timeSpent} />
-                  </div>
-                </div>
-              )}
-
-              {/* Ticket details */}
-              <div
-                className="psd-in psd-panel rounded-[20px] border border-white/[0.06] bg-[#16162e] p-6"
-                style={{ "--psd-delay": "0.13s" } as React.CSSProperties}
-              >
-                <h3 className="mb-4 text-[13px] font-bold uppercase tracking-[0.08em] text-[#6b6b8a]">
-                  Ticket Details
-                </h3>
-                <SidebarItem
-                  icon={CalendarDays}
-                  label="Created"
-                  value={formatDateTime(ticket.created_at)}
-                />
-                {internal && (
-                  <SidebarItem
-                    icon={Clock}
-                    label="Time logged"
-                    value={formatMinutes(timeSpent)}
-                  />
-                )}
-                {reporterName && (
-                  <SidebarItem
-                    icon={UserRound}
-                    label="Reporter"
-                    value={reporterName}
-                  />
-                )}
-                <SidebarItem
-                  icon={TicketIcon}
-                  label="Ticket ID"
-                  value={`#${ticket.id.slice(0, 8)}`}
-                />
-              </div>
-
-              {/* Company */}
-              {companyName && (
-                <div
-                  className="psd-in psd-panel rounded-[20px] border border-white/[0.06] bg-[#16162e] p-6"
-                  style={{ "--psd-delay": "0.16s" } as React.CSSProperties}
-                >
-                  <h3 className="mb-4 text-[13px] font-bold uppercase tracking-[0.08em] text-[#6b6b8a]">
-                    Company
-                  </h3>
-                  <div className="flex items-center gap-3 border-b border-white/[0.06] pb-2.5">
-                    <span
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${avatarGradient(companyId ?? companyName)}`}
-                    >
-                      {companyName.trim().charAt(0).toUpperCase()}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="mb-0.5 text-[11px] text-[#6b6b8a]">Name</p>
-                      <p className="truncate text-[13px] font-semibold text-[#f0f0f5]">
-                        {internal && companyId ? (
-                          <Link
-                            href={`/companies/${companyId}`}
-                            className="text-[#a78bfa] hover:underline"
-                          >
-                            {companyName}
-                          </Link>
-                        ) : (
-                          companyName
-                        )}
-                      </p>
-                    </div>
-                  </div>
-                  {reporter?.email && (
-                    <SidebarItem icon={Mail} label="Contact" value={reporter.email} />
-                  )}
-                </div>
-              )}
-
-              {/* Related tickets — same company */}
-              {related && related.length > 0 && (
-                <div
-                  className="psd-in psd-panel rounded-[20px] border border-white/[0.06] bg-[#16162e] p-6"
-                  style={{ "--psd-delay": "0.19s" } as React.CSSProperties}
-                >
-                  <h3 className="mb-4 text-[13px] font-bold uppercase tracking-[0.08em] text-[#6b6b8a]">
-                    Related Tickets
-                  </h3>
-                  {related.map((r, i) => (
-                    <Link
-                      key={r.id}
-                      href={`/tickets/${r.id}`}
-                      className={`-mx-2 flex items-center gap-3 rounded-lg px-2 py-3 transition-colors hover:bg-white/[0.02] ${
-                        i ? "border-t border-white/[0.06]" : ""
-                      }`}
-                    >
-                      <span className="shrink-0 font-mono text-xs font-bold text-[#a78bfa]">
-                        #{r.id.slice(0, 4)}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-[13px] text-[#a0a0b8]">
-                        {r.subject}
-                      </span>
-                      <span
-                        className={`h-2 w-2 shrink-0 rounded-full ${STATUS_DOTS[r.status as TicketStatus]}`}
-                        title={STATUS_LABELS[r.status as TicketStatus]}
-                      />
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </aside>
+            <p className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-[#d0d0e0]">{t.body}</p>
           </div>
-        </main>
+
+          {((replies ?? []) as unknown as Reply[]).map((r) => (
+            <div key={r.id} className="psd-card rounded-2xl p-5">
+              <p className="text-[13px] text-[#a0a0b8]">
+                <span className="font-semibold text-[#f0f0f5]">{displayName(r.author)}</span> ·{" "}
+                {roleLabel(r.author?.role)} · {formatDateTime(r.created_at)}
+              </p>
+              <p className="mt-2 whitespace-pre-wrap text-[15px] text-[#d0d0e0]">{r.body}</p>
+            </div>
+          ))}
+
+          <form action={addReply.bind(null, t.id)} className="psd-card flex flex-col gap-3 rounded-2xl p-5">
+            <textarea
+              name="body"
+              required
+              rows={4}
+              placeholder="Write a reply…"
+              className="psd-input rounded-xl px-4 py-3 text-[15px] text-[#f0f0f5]"
+            />
+            <button type="submit" className="self-end rounded-xl bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] px-5 py-2.5 text-sm font-semibold text-white">
+              Send reply
+            </button>
+          </form>
+        </section>
+
+        <aside className="flex flex-col gap-4">
+          {admin && (
+            <div className="psd-panel flex flex-col gap-4 rounded-2xl p-5">
+              <form action={changeStatus.bind(null, t.id)} className="flex items-center gap-2">
+                <select name="status" defaultValue={t.status} className="psd-select flex-1">
+                  {STATUS_OPTIONS.map((s) => (
+                    <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+                  ))}
+                </select>
+                <button type="submit" className="psd-action rounded-xl px-3 py-2 text-sm">Set status</button>
+              </form>
+              <form action={changePriority.bind(null, t.id)} className="flex items-center gap-2">
+                <select name="priority" defaultValue={t.priority} className="psd-select flex-1">
+                  {PRIORITY_OPTIONS.map((p) => (
+                    <option key={p} value={p}>{PRIORITY_LABELS[p]}</option>
+                  ))}
+                </select>
+                <button type="submit" className="psd-action rounded-xl px-3 py-2 text-sm">Set priority</button>
+              </form>
+              <form action={assignTicket.bind(null, t.id)} className="flex items-center gap-2">
+                <select name="assigneeId" defaultValue={t.assignee_id ?? ""} className="psd-select flex-1">
+                  <option value="">Unassigned</option>
+                  {(admins ?? []).map((a) => (
+                    <option key={a.id} value={a.id}>{displayName(a)}</option>
+                  ))}
+                </select>
+                <button type="submit" className="psd-action rounded-xl px-3 py-2 text-sm">Assign</button>
+              </form>
+            </div>
+          )}
+
+          {!admin && (
+            <div className="psd-panel rounded-2xl p-5 text-sm text-[#a0a0b8]">
+              Assigned to: <span className="text-[#f0f0f5]">{t.assignee ? displayName(t.assignee) : "Not yet"}</span>
+            </div>
+          )}
+
+          <div className="psd-panel rounded-2xl p-5">
+            <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-[#6b6b8a]">History</h2>
+            <ul className="flex flex-col gap-2 text-[13px] text-[#a0a0b8]">
+              {((events ?? []) as unknown as Event[]).map((e) => (
+                <li key={e.id}>
+                  <span className="text-[#f0f0f5]">{displayName(e.actor)}</span>{" "}
+                  {e.kind === "status"
+                    ? `changed status ${label(e.from_value)} → ${label(e.to_value)}`
+                    : `reassigned ${e.from_value ?? "—"} → ${e.to_value ?? "—"}`}
+                  <span className="block text-[11px] text-[#6b6b8a]">{formatDateTime(e.created_at)}</span>
+                </li>
+              ))}
+              {(events ?? []).length === 0 && <li>No changes yet.</li>}
+            </ul>
+          </div>
+        </aside>
       </div>
-    </div>
-  );
-}
-
-/* ---------- Pieces ---------- */
-
-function Badge({ text, className }: { text: string; className: string }) {
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-xs font-semibold ${className}`}
-    >
-      {text}
-    </span>
-  );
-}
-
-function SidebarItem({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="flex items-center gap-3 border-b border-white/[0.06] py-2.5 first:pt-0 last:border-b-0 last:pb-0">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#8b5cf6]/[0.08] text-[#a78bfa]">
-        <Icon className="h-4 w-4" strokeWidth={2} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="mb-0.5 text-[11px] text-[#6b6b8a]">{label}</p>
-        <p className="truncate text-[13px] font-semibold text-[#f0f0f5]">{value}</p>
-      </div>
-    </div>
+    </AppShell>
   );
 }

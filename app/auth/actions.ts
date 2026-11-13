@@ -3,7 +3,6 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { notifyNewSignup, notifyLogin } from "@/lib/email";
 
 // Shape of what these actions return to the form when something goes wrong.
 export type AuthState = { error: string } | null;
@@ -11,40 +10,43 @@ export type AuthState = { error: string } | null;
 // Reset flows also report a success message.
 export type ResetState = { error: string } | { success: string } | null;
 
-// Sign up a brand-new user. The database trigger we installed automatically
-// creates their organization (agency) and makes them its Organization Admin.
-// We pass the full name + org name along as metadata so the trigger can use them.
+// Public signup. The DB trigger always creates a 'client' profile; admins come from /team invites.
 export async function signUp(
-  _prev: AuthState,
+  _prev: ResetState,
   formData: FormData,
-): Promise<AuthState> {
+): Promise<ResetState> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const fullName = String(formData.get("fullName") ?? "").trim();
-  const orgName = String(formData.get("orgName") ?? "").trim();
 
-  if (!email || !password || !orgName) {
-    return { error: "Organization name, email, and password are required." };
-  }
+  if (!email || !password) return { error: "Email and password are required." };
   if (password.length < 6) {
     return { error: "Password must be at least 6 characters." };
   }
 
+  const h = await headers();
+  const origin =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    `${h.get("x-forwarded-proto") ?? "http"}://${h.get("host")}`;
+
   const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { full_name: fullName, org_name: orgName } },
+    options: {
+      data: { full_name: fullName },
+      emailRedirectTo: `${origin}/auth/callback?next=/tickets`,
+    },
   });
 
   if (error) return { error: error.message };
 
-  // Alert the platform admin that a new agency signed up (best-effort; only
-  // fires if ADMIN_ALERT_EMAIL is configured).
-  await notifyNewSignup({ orgName, adminEmail: email });
+  // "Confirm email" is on: no session until they click the link.
+  if (!data.session) {
+    return { success: "Check your email to confirm your account." };
+  }
 
-  // Success — send them to their dashboard.
-  redirect("/dashboard");
+  redirect("/tickets");
 }
 
 // Log an existing user in.
@@ -64,11 +66,7 @@ export async function signIn(
 
   if (error) return { error: error.message };
 
-  // Alert the platform admin on every successful sign-in (best-effort; only
-  // fires if ADMIN_ALERT_EMAIL is configured).
-  await notifyLogin({ email });
-
-  redirect("/dashboard");
+  redirect("/tickets");
 }
 
 // Log the current user out.
@@ -130,5 +128,5 @@ export async function updatePassword(
   const { error } = await supabase.auth.updateUser({ password });
   if (error) return { error: error.message };
 
-  redirect("/dashboard");
+  redirect("/tickets");
 }

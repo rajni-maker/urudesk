@@ -1,80 +1,43 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { createAdmin } from "@/lib/supabase/admin";
-import { isInternal } from "@/lib/roles";
-import { notifyNewMember } from "@/lib/email";
+import { requireAdmin } from "@/lib/session";
 
-// Shape of what these actions return to the form when something goes wrong.
-export type TeamState = { error: string } | { success: string } | null;
+export type InviteState = { error: string } | { success: string } | null;
 
-// Add a Support Rep (internal staff) to the agency. Creates the auth user with
-// a temporary password (share it manually for now; email invites come later).
-// Client Contacts are invited separately, from a company's page.
-export async function createTeamMember(
-  _prev: TeamState,
-  formData: FormData,
-): Promise<TeamState> {
-  const fullName = String(formData.get("fullName") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim();
-  const password = String(formData.get("password") ?? "");
+// Admin-only. The Team page invites internal staff, so every invitee is an
+// admin. Clients sign themselves up via /signup. Supabase emails the invite;
+// the trigger creates a 'client' profile, which we promote here.
+export async function inviteMember(_prev: InviteState, formData: FormData): Promise<InviteState> {
+  await requireAdmin();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (!email) return { error: "Email is required." };
 
-  if (!email || !password) {
-    return { error: "Email and temporary password are required." };
-  }
-  if (password.length < 6) {
-    return { error: "Temporary password must be at least 6 characters." };
-  }
-
-  // Verify the current user is internal staff, and get their agency id.
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const { data: me } = await supabase
-    .from("profiles")
-    .select("role, organization_id")
-    .eq("id", user.id)
-    .single();
-
-  if (!me || !isInternal(me.role)) {
-    return { error: "Only agency staff can add team members." };
-  }
-
-  // Create the user via the admin API. The DB trigger reads organization_id +
-  // role from metadata and places them in this agency as a support rep.
   const admin = createAdmin();
-  const { error } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-    user_metadata: {
-      full_name: fullName,
-      organization_id: me.organization_id,
-      role: "support_rep",
-    },
-  });
+  // The invite link itself comes from the dashboard email template (Task 1),
+  // which points at /auth/confirm → /reset-password.
+  const { data, error } = await admin.auth.admin.inviteUserByEmail(email, { data: { role: "admin" } });
+  if (error || !data.user) return { error: error?.message ?? "Invite failed." };
 
-  if (error) return { error: error.message };
-
-  // Alert the org's admins that a new member joined (best-effort).
-  const { data: admins } = await supabase
-    .from("profiles")
-    .select("email")
-    .eq("role", "organization_admin");
-  await notifyNewMember({
-    to: (admins ?? []).map((a) => a.email as string).filter(Boolean),
-    memberLabel: fullName || email,
-    roleText: "Support Rep",
-    path: "/team",
-  });
+  const { error: roleError } = await admin.from("profiles").update({ role: "admin" }).eq("id", data.user.id);
+  if (roleError) return { error: `Invited, but couldn't make them an admin: ${roleError.message}` };
 
   revalidatePath("/team");
-  return {
-    success: `${email} added as a Support Rep. Share their temporary password so they can log in.`,
-  };
+  return { success: `Invite sent to ${email}. They'll join as an admin.` };
+}
+
+// Admin-only. Deletes the login; FK cascades remove the profile, the user's
+// tickets, and their replies/events. You can't delete yourself.
+export async function deleteMember(userId: string): Promise<{ error: string } | null> {
+  const { profile } = await requireAdmin();
+  if (userId === profile.id) return { error: "You can't delete your own account." };
+
+  const { error } = await createAdmin().auth.admin.deleteUser(userId);
+  if (error) return { error: error.message };
+
+  revalidatePath("/team");
+  revalidatePath("/tickets");
+  revalidatePath("/dashboard");
+  return null;
 }

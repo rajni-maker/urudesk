@@ -1,41 +1,28 @@
-// Single source of truth for user roles in the agency model.
-//
-//   organization_admin  — runs the agency (Pixelmattic); manages everything
-//   support_rep         — internal support staff; handles tickets, manages clients
-//   company_contact     — a person at a client company (RDT, etc.); files tickets
-//
-// "Internal" roles are the agency's own people (no company_id). A company_contact
-// belongs to exactly one client Company.
+// Phase 1 has two roles: the internal support team and their clients.
+// Import-free so `node --test` can load it directly.
 
-export type UserRole = "organization_admin" | "support_rep" | "company_contact";
+export type UserRole = "admin" | "client";
 
 export const ROLE_LABELS: Record<UserRole, string> = {
-  organization_admin: "Organization Admin",
-  support_rep: "Support Rep",
-  company_contact: "Company Contact",
+  admin: "Internal Admin",
+  client: "Client",
 };
 
-// The agency's own staff — everyone who is not a client contact.
-export const INTERNAL_ROLES: UserRole[] = ["organization_admin", "support_rep"];
-
-// True for agency staff (org admin or support rep). Accepts a loose string
-// because role often arrives as a bare string from Supabase queries.
-export function isInternal(role?: string | null): boolean {
-  return role === "organization_admin" || role === "support_rep";
+export function isUserRole(v: unknown): v is UserRole {
+  return v === "admin" || v === "client";
 }
 
-// Which side of a ticket conversation a role speaks for. Internal staff (admin
-// + rep) both speak AS support; everyone else is the customer. Lives here so the
-// AI prompt and the UI label can never disagree, and so client components can
-// read it without pulling in the server-only AI module.
-export type DraftPerspective = "client" | "support";
-
-export function draftPerspective(role?: string | null): DraftPerspective {
-  return isInternal(role) ? "support" : "client";
+export function isAdmin(role?: string | null): boolean {
+  return role === "admin";
 }
 
-// Human-friendly label for any role value; falls back gracefully.
 export function roleLabel(role?: string | null): string {
-  if (role && role in ROLE_LABELS) return ROLE_LABELS[role as UserRole];
-  return "Member";
+  return isUserRole(role) ? ROLE_LABELS[role] : "Member";
+}
+
+// ---- Phase 2 shims: lib/ai.ts (parked, not wired) imports these. ----------
+export const isInternal = isAdmin;
+export type DraftPerspective = "client" | "support";
+export function draftPerspective(role?: string | null): DraftPerspective {
+  return isAdmin(role) ? "support" : "client";
 }

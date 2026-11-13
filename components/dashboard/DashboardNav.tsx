@@ -11,36 +11,26 @@ import { initials } from "./avatar";
 export default function DashboardNav({
   name,
   role,
-  internal,
-  isContact,
+  admin,
   current,
 }: {
   name: string;
   role: string;
-  internal: boolean;
-  isContact: boolean;
+  admin: boolean;
   /* Which nav entry to mark as the current page. */
-  current: "dashboard" | "tickets" | "companies" | "team" | "contacts";
+  current: "dashboard" | "tickets" | "team";
 }) {
   const links = [
-    { href: "/dashboard", label: "Dashboard", key: "dashboard" },
+    ...(admin ? [{ href: "/dashboard", label: "Dashboard", key: "dashboard" }] : []),
     { href: "/tickets", label: "Tickets", key: "tickets" },
-    ...(internal
-      ? [
-          { href: "/companies", label: "Companies", key: "companies" },
-          { href: "/team", label: "Team", key: "team" },
-        ]
-      : []),
-    ...(isContact ? [{ href: "/contacts", label: "Contacts", key: "contacts" }] : []),
-  ].map((l) => ({ ...l, active: l.key === current }));
+    ...(admin ? [{ href: "/team", label: "Team", key: "team" }] : []),
+].map((l) => ({ ...l, active: l.key === current }));
 
   return (
     <header className="sticky top-0 z-50 flex h-[68px] items-center justify-between border-b border-white/[0.06] bg-[#11112a]/80 px-4 backdrop-blur-xl sm:px-8">
       <div className="flex items-center gap-6 lg:gap-10">
-        {/* The brand goes to the marketing site; "Dashboard" in the nav below
-            is the way back into the app. */}
         <Link
-          href="/"
+          href="/tickets"
           className="flex items-center gap-2.5 text-[18px] font-bold tracking-[-0.02em] text-[#f0f0f5]"
         >
           <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-gradient-to-br from-[#8b5cf6] to-[#06b6d4] shadow-[0_0_20px_rgba(139,92,246,0.3)]">
