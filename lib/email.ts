@@ -8,7 +8,7 @@
 // and only to your own account email. To email real recipients, verify a
 // sending domain in Resend and set EMAIL_FROM.
 
-const FROM = process.env.EMAIL_FROM || "PixelSupport <onboarding@resend.dev>";
+const FROM = process.env.EMAIL_FROM || "UruDesk <onboarding@resend.dev>";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
 async function send(to: string[], subject: string, html: string, ccList: string[] = []) {
@@ -100,7 +100,7 @@ function wrap(
       <h1 style="margin:0 0 12px;font-size:18px;color:#111827">${heading}</h1>
       ${body}
       <a href="${link}" style="display:inline-block;margin-top:12px;padding:10px 16px;background:#111827;color:#fff;border-radius:8px;font-size:14px;text-decoration:none">${linkLabel}</a>
-      <p style="margin:20px 0 0;color:#9ca3af;font-size:12px">PixelSupport</p>
+      <p style="margin:20px 0 0;color:#9ca3af;font-size:12px">UruDesk</p>
     </div>`;
 }
 

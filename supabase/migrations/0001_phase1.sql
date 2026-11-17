@@ -1,4 +1,4 @@
--- PixelSupport Phase 1 — whole schema. Apply once, by hand, in the NEW project's SQL editor.
+-- UruDesk Phase 1 — whole schema. Apply once, by hand, in the NEW project's SQL editor.
 
 -- ---------- Tables ----------------------------------------------------------
 

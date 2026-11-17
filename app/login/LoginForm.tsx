@@ -51,7 +51,7 @@ export default function LoginForm({ linkError }: { linkError: boolean }) {
               <Sparkles className="h-[18px] w-[18px] text-white" strokeWidth={2.2} />
             </span>
             <span className="text-lg font-extrabold tracking-[-0.02em] text-[#0F172A] dark:text-white">
-              PixelSupport
+              UruDesk
             </span>
           </div>
 
@@ -60,7 +60,7 @@ export default function LoginForm({ linkError }: { linkError: boolean }) {
               Welcome back
             </h1>
             <p className="mt-2.5 text-[15px] leading-relaxed text-[#64748B] dark:text-[#94A3B8]">
-              Log in to your PixelSupport workspace.
+              Log in to your UruDesk workspace.
             </p>
           </div>
 

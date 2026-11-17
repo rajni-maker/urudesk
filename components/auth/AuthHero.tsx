@@ -127,7 +127,7 @@ export default function AuthHero({
               <Sparkles className="h-5 w-5 text-white" strokeWidth={2.2} />
             </span>
             <span className="text-[25px] font-extrabold tracking-[-0.02em] text-white">
-              PixelSupport
+              UruDesk
             </span>
           </Link>
         </motion.div>

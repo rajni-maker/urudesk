@@ -1,4 +1,4 @@
-# PixelSupport Phase 1 — Design
+# UruDesk Phase 1 — Design
 
 Date: 2026-11-04 · Branch: `phase1` · Target: 2 days
 

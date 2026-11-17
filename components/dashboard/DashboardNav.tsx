@@ -36,7 +36,7 @@ export default function DashboardNav({
           <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-gradient-to-br from-[#8b5cf6] to-[#06b6d4] shadow-[0_0_20px_rgba(139,92,246,0.3)]">
             <Sparkles className="h-[18px] w-[18px] text-white" strokeWidth={2.2} />
           </span>
-          PixelSupport
+          UruDesk
         </Link>
 
         <nav className="hidden items-center gap-1 sm:flex">

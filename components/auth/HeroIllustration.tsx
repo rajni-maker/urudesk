@@ -1,4 +1,4 @@
-/* Hand-built vector portrait of a PixelSupport support rep at a modern
+/* Hand-built vector portrait of a UruDesk support rep at a modern
  * workstation. Every animated part (eyelids, torso, head, hands) is its own
  * group so CSS can drive it — see signup.css for the keyframes.
  *
@@ -299,7 +299,7 @@ export default function HeroIllustration() {
       {/* RGB strip glowing under the desk edge */}
       <rect x="40" y="345" width="380" height="3" rx="1.5" fill="url(#ps-rgb)" opacity="0.75" filter="url(#ps-blur)" />
 
-      {/* ---------- Laptop: the PixelSupport dashboard ---------- */}
+      {/* ---------- Laptop: the UruDesk dashboard ---------- */}
       <g>
         <rect x="146" y="256" width="168" height="106" rx="8" fill="url(#ps-screen)" stroke="rgba(255,255,255,0.16)" strokeWidth="1.6" />
         <rect x="153" y="263" width="154" height="92" rx="5" fill="rgba(79,70,229,0.10)" />

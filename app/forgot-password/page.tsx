@@ -39,7 +39,7 @@ export default function ForgotPasswordPage() {
               <Sparkles className="h-[18px] w-[18px] text-white" strokeWidth={2.2} />
             </span>
             <span className="text-lg font-extrabold tracking-[-0.02em] text-[#0F172A] dark:text-white">
-              PixelSupport
+              UruDesk
             </span>
           </div>
 

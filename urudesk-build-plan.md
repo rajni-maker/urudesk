@@ -1,11 +1,11 @@
-# PixelSupport — Build Plan & Master Prompt
+# UruDesk — Build Plan & Master Prompt
 **Target ship date: July 23rd (4 build days from today, July 19)**
 
 ---
 
 ## 1. Product Positioning
 
-**PixelSupport** is a lightweight, AI-assisted helpdesk for agencies and small businesses — not a Freshdesk clone. The wedge:
+**UruDesk** is a lightweight, AI-assisted helpdesk for agencies and small businesses — not a Freshdesk clone. The wedge:
 
 - **Fast, modern UI** — no bloat, no 15-year-old UX debt
 - **AI does the boring parts** — triage, drafting, summarizing, tagging — humans approve everything
@@ -138,7 +138,7 @@ Cutting these is what makes the 23rd realistic. Resist scope creep this week.
 ## 8. Master Prompt (paste this into Cursor AI to scaffold the project)
 
 ```
-You are helping me build PixelSupport, a multi-tenant SaaS helpdesk application.
+You are helping me build UruDesk, a multi-tenant SaaS helpdesk application.
 
 TECH STACK:
 - Next.js 14 (App Router, TypeScript)
@@ -226,4 +226,4 @@ and environment variables I need to configure first.
 
 ## 10. Naming note
 
-This plan uses the name **PixelSupport** for the product but keeps the same core scope as the "Client Care Portal" concept you'd outlined earlier (tickets, client communication, maintenance-style workflow). If PixelSupport is meant to be broader (agencies/small businesses generally, not just your own client base), the schema above already supports that — `organizations` being a first-class multi-tenant table means any agency can sign up and use it standalone.
+This plan uses the name **UruDesk** for the product but keeps the same core scope as the "Client Care Portal" concept you'd outlined earlier (tickets, client communication, maintenance-style workflow). If UruDesk is meant to be broader (agencies/small businesses generally, not just your own client base), the schema above already supports that — `organizations` being a first-class multi-tenant table means any agency can sign up and use it standalone.

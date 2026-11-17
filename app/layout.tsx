@@ -7,7 +7,7 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
-// Inter is the typeface the new PixelSupport screens are designed in. Exposed
+// Inter is the typeface the new UruDesk screens are designed in. Exposed
 // as a variable only — pages opt in with `font-[family-name:var(--font-inter)]`
 // so existing screens keep their current type until they're redesigned too.
 const inter = Inter({
@@ -21,7 +21,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PixelSupport",
+  title: "UruDesk",
   description: "Simple helpdesk for raising and tracking support tickets.",
 };
 
