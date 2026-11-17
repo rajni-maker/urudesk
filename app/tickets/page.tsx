@@ -22,6 +22,7 @@ type Row = {
   status: TicketStatus;
   priority: TicketPriority;
   created_at: string;
+  pending_email: string | null;
   client: Person;
   assignee: Person;
 };
@@ -39,7 +40,7 @@ export default async function TicketsPage({
   let query = supabase
     .from("tickets")
     .select(
-      "id, number, subject, status, priority, created_at, client:profiles!tickets_client_id_fkey(full_name, email), assignee:profiles!tickets_assignee_id_fkey(full_name, email)",
+      "id, number, subject, status, priority, created_at, pending_email, client:profiles!tickets_client_id_fkey(full_name, email), assignee:profiles!tickets_assignee_id_fkey(full_name, email)",
     )
     .order("created_at", { ascending: false });
   if (filters.status) query = query.eq("status", filters.status);
@@ -95,7 +96,12 @@ export default async function TicketsPage({
                 <Link href={`/tickets/${t.id}`} className="psd-row flex flex-wrap items-center gap-4 px-5 py-4">
                   <span className="w-14 text-[13px] text-[#6b6b8a]">#{t.number}</span>
                   <span className="min-w-0 flex-1 truncate font-medium">{t.subject}</span>
-                  {admin && <span className="text-[13px] text-[#a0a0b8]">{displayName(t.client)}</span>}
+                  {admin &&
+                    (t.client ? (
+                      <span className="text-[13px] text-[#a0a0b8]">{displayName(t.client)}</span>
+                    ) : (
+                      <span className="text-[13px] font-semibold text-[#fbbf24]">⏳ {t.pending_email}</span>
+                    ))}
                   <span className="text-[13px] text-[#a0a0b8]">
                     {t.assignee ? displayName(t.assignee) : "Unassigned"}
                   </span>

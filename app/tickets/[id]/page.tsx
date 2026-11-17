@@ -16,6 +16,7 @@ import {
   type TicketPriority,
 } from "@/lib/tickets";
 import { addReply, assignTicket, changePriority, changeStatus } from "../actions";
+import { approvePendingTicket, rejectPendingTicket } from "../pending-actions";
 
 type Person = { id: string; full_name: string; email: string; role: string } | null;
 type Ticket = {
@@ -27,6 +28,7 @@ type Ticket = {
   priority: TicketPriority;
   created_at: string;
   assignee_id: string | null;
+  pending_email: string | null;
   client: Person;
   assignee: Person;
 };
@@ -52,7 +54,7 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
     supabase
       .from("tickets")
       .select(
-        `id, number, subject, body, status, priority, created_at, assignee_id, client:profiles!tickets_client_id_fkey(${PERSON}), assignee:profiles!tickets_assignee_id_fkey(${PERSON})`,
+        `id, number, subject, body, status, priority, created_at, assignee_id, pending_email, client:profiles!tickets_client_id_fkey(${PERSON}), assignee:profiles!tickets_assignee_id_fkey(${PERSON})`,
       )
       .eq("id", id)
       .maybeSingle(),
@@ -85,8 +87,29 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
         <section className="flex flex-col gap-4">
           <div className="psd-card rounded-2xl p-6">
             <p className="text-[13px] text-[#6b6b8a]">
-              #{t.number} · {displayName(t.client)} · {formatDateTime(t.created_at)}
+              #{t.number} · {t.client ? displayName(t.client) : t.pending_email} · {formatDateTime(t.created_at)}
             </p>
+            {admin && !t.client && t.pending_email && (
+              <div className="mt-3 rounded-xl border border-[#f59e0b]/30 bg-[#f59e0b]/[0.08] p-4">
+                <p className="text-sm text-[#fbbf24]">
+                  Waiting for approval: <strong>{t.pending_email}</strong> is not a verified client.
+                  Approving adds them as a client (with an invite if they have no account) and
+                  sends them the ticket confirmation. Rejecting deletes this ticket.
+                </p>
+                <div className="mt-3 flex gap-2">
+                  <form action={approvePendingTicket.bind(null, t.id)}>
+                    <button type="submit" className="rounded-lg bg-[#22c55e]/20 px-3 py-1.5 text-sm font-semibold text-[#4ade80]">
+                      Approve sender
+                    </button>
+                  </form>
+                  <form action={rejectPendingTicket.bind(null, t.id)}>
+                    <button type="submit" className="rounded-lg bg-[#ef4444]/15 px-3 py-1.5 text-sm font-semibold text-[#f87171]">
+                      Reject
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
             <h1 className="psd-title mt-1 text-[24px] font-bold">{t.subject}</h1>
             <div className="mt-3 flex gap-2">
               <span className={`rounded-full px-2.5 py-1 text-[12px] font-semibold ${DARK_STATUS_STYLES[t.status]}`}>

@@ -131,3 +131,17 @@ export async function slackTicketAssigned(opts: {
     ),
   );
 }
+
+// ---- Pending (unknown sender) email ticket ----
+export async function slackPendingTicket(opts: { ticketId: string; subject: string; fromEmail: string }) {
+  const subject = esc(opts.subject);
+  await post(
+    `Approval needed: ${subject}`,
+    build(
+      `⏳ Email ticket needs approval — ${subject}`,
+      [{ label: "From", value: esc(opts.fromEmail) }],
+      `/tickets/${opts.ticketId}`,
+      "Review ticket",
+    ),
+  );
+}

@@ -4,14 +4,16 @@
 // Safety rules:
 // - Signature checked (RESEND_WEBHOOK_SECRET) before anything else.
 // - inbound_emails.resend_email_id is unique, so retries never duplicate.
-// - Unknown / unverified / spoofed senders are HELD (logged, no ticket, no reply).
+// - Spoofed (DKIM/DMARC fail) senders are HELD (logged, no ticket, no reply).
+// - Unknown / unverified senders create a PENDING ticket (no client, admins only)
+//   that an admin approves or rejects. No reply to the sender until approved.
 // - Auto-replies and bounces are IGNORED (no reply, so no mail loops).
 // - Logs carry ids and outcomes only, never email content.
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdmin } from "@/lib/supabase/admin";
 import { bodyText, isAutomated, parseAddress, senderAuthenticated, verifyWebhook } from "@/lib/inbound";
-import { notifyEmailTicketCreated, notifyNewTicket } from "@/lib/email";
-import { slackNewTicket } from "@/lib/slack";
+import { notifyEmailTicketCreated, notifyNewTicket, notifyPendingTicket } from "@/lib/email";
+import { slackNewTicket, slackPendingTicket } from "@/lib/slack";
 import { PRIORITY_LABELS } from "@/lib/tickets";
 
 type ReceivedEmail = {
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
     if (!retry?.length) return NextResponse.json({ duplicate: true });
   }
 
-  const finish = (status: "created" | "held" | "ignored" | "failed", reason?: string, ticketId?: string) =>
+  const finish = (status: "created" | "pending" | "held" | "ignored" | "failed", reason?: string, ticketId?: string) =>
     db
       .from("inbound_emails")
       .update({ status, reason: reason ?? null, ticket_id: ticketId ?? null })
@@ -88,22 +90,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ outcome: "ignored" });
     }
 
-    const { data: profile } = await db
-      .from("profiles")
-      .select("id, email, full_name, role")
-      .eq("email", fromAddr)
-      .maybeSingle();
-    if (!profile || profile.role !== "client") return hold("sender is not a registered client");
-
-    const { data: authUser } = await db.auth.admin.getUserById(profile.id);
-    if (!authUser.user?.email_confirmed_at) return hold("sender email not verified");
-
+    // Spoofed mail never becomes a ticket, pending or not.
     if (!senderAuthenticated(email.authentication)) {
       return hold("sender failed DKIM/DMARC (possible spoof)");
     }
 
     const subject = (email.subject ?? "").trim().slice(0, 200) || "(no subject)";
     const body = bodyText(email.text, email.html) || "(empty email)";
+
+    const { data: profile } = await db
+      .from("profiles")
+      .select("id, email, full_name, role")
+      .eq("email", fromAddr)
+      .maybeSingle();
+    if (profile && profile.role !== "client") return hold("sender is an admin, not a client");
+
+    const verified =
+      !!profile && !!(await db.auth.admin.getUserById(profile.id)).data.user?.email_confirmed_at;
+    if (!profile || !verified) {
+      return pending(fromAddr, subject, body, profile ? "sender email not verified" : "sender not registered");
+    }
 
     const { data: ticket, error } = await db
       .from("tickets")
@@ -142,6 +148,33 @@ export async function POST(request: NextRequest) {
     await finish("failed", "processing error");
     // 500 makes Resend retry; the retry takes over this 'failed' row.
     return NextResponse.json({ error: "processing failed" }, { status: 500 });
+  }
+
+  // Unknown / unverified sender: the ticket exists but has no client until an
+  // admin approves it. Only admins can see it (clients see client_id = self).
+  // No reply goes to the sender until approval.
+  async function pending(fromAddr: string, subject: string, body: string, reason: string) {
+    const { data: ticket, error } = await db
+      .from("tickets")
+      .insert({ subject, body, priority: "normal", client_id: null, pending_email: fromAddr, source: "email" })
+      .select("id, number")
+      .single();
+    if (error || !ticket) throw error ?? new Error("pending ticket insert returned nothing");
+    await finish("pending", reason, ticket.id);
+
+    const { data: admins } = await db.from("profiles").select("email").eq("role", "admin");
+    await Promise.all([
+      slackPendingTicket({ ticketId: ticket.id, subject, fromEmail: fromAddr }),
+      notifyPendingTicket({
+        to: (admins ?? []).map((a) => a.email).filter(Boolean),
+        ticketId: ticket.id,
+        ticketNumber: ticket.number,
+        subject,
+        fromEmail: fromAddr,
+      }),
+    ]);
+    console.log(`[inbound] ${emailId} -> pending ticket #${ticket.number} (${reason})`);
+    return NextResponse.json({ outcome: "pending", ticket: ticket.number });
   }
 
   async function hold(reason: string) {

@@ -194,3 +194,28 @@ export async function notifyStatusChange(opts: {
     ),
   );
 }
+
+// ---- Pending (unknown sender) email tickets --------------------------------
+
+// To admins: someone not yet a verified client emailed support.
+export async function notifyPendingTicket(opts: {
+  to: string[];
+  ticketId: string;
+  ticketNumber: number;
+  subject: string;
+  fromEmail: string;
+}) {
+  await send(
+    opts.to,
+    `[#${opts.ticketNumber}] Approval needed: ${opts.subject}`,
+    wrap(
+      "Email ticket waiting for approval",
+      [
+        `<strong>${esc(opts.fromEmail)}</strong> is not a verified client and emailed <strong>${esc(opts.subject)}</strong>.`,
+        "Open the ticket to approve the sender (they become a client and get an invite) or reject it.",
+      ],
+      `/tickets/${opts.ticketId}`,
+      "Review ticket",
+    ),
+  );
+}
