@@ -21,7 +21,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "UruDesk",
+  title: "UruDesk Helpdesk",
   description: "Simple helpdesk for raising and tracking support tickets.",
 };
 
