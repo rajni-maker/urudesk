@@ -135,6 +135,28 @@ export async function notifyNewTicket(opts: {
   );
 }
 
+// Acknowledgement to a client whose email just became a ticket.
+export async function notifyEmailTicketCreated(opts: {
+  to: string;
+  ticketId: string;
+  ticketNumber: number;
+  subject: string;
+}) {
+  await send(
+    [opts.to],
+    `[#${opts.ticketNumber}] We received your request: ${opts.subject}`,
+    wrap(
+      `Ticket #${opts.ticketNumber} created`,
+      [
+        `Thanks, we received your email <strong>${esc(opts.subject)}</strong> and opened ticket #${opts.ticketNumber}.`,
+        "You can follow it and reply in the portal.",
+      ],
+      `/tickets/${opts.ticketId}`,
+      "View ticket",
+    ),
+  );
+}
+
 export async function notifyNewReply(opts: {
   to: string[];
   ticketId: string;

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
+  Building2,
   Check,
   Lock,
   Mail,
@@ -81,6 +82,14 @@ export default function SignupPage() {
               placeholder="Jane Doe"
               icon={UserRound}
               autoComplete="name"
+            />
+            <Field
+              label="Company / organisation"
+              name="companyName"
+              type="text"
+              placeholder="Acme Pvt Ltd"
+              icon={Building2}
+              autoComplete="organization"
             />
             <Field
               label="Email"

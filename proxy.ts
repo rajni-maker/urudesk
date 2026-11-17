@@ -56,7 +56,8 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
-const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password", "/auth"];
+// /api/inbound is the Resend webhook: no session, it checks its own signature.
+const PUBLIC_PATHS = ["/login", "/signup", "/forgot-password", "/reset-password", "/auth", "/api/inbound"];
 const ADMIN_PATHS = ["/dashboard", "/team"];
 
 // A redirect must carry any cookies the session refresh just set.

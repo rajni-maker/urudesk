@@ -18,6 +18,8 @@ export async function signUp(
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const fullName = String(formData.get("fullName") ?? "").trim();
+  // Stored as plain text for now; organisations come in a later phase.
+  const companyName = String(formData.get("companyName") ?? "").trim().slice(0, 200);
 
   if (!email || !password) return { error: "Email and password are required." };
   if (password.length < 6) {
@@ -34,7 +36,7 @@ export async function signUp(
     email,
     password,
     options: {
-      data: { full_name: fullName },
+      data: { full_name: fullName, company_name: companyName },
       emailRedirectTo: `${origin}/auth/callback?next=/tickets`,
     },
   });
