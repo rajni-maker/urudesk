@@ -21,7 +21,9 @@ export async function signUp(
   // Stored as plain text for now; organisations come in a later phase.
   const companyName = String(formData.get("companyName") ?? "").trim().slice(0, 200);
 
-  if (!email || !password) return { error: "Email and password are required." };
+  if (!fullName || !companyName || !email || !password) {
+    return { error: "Name, company, email and password are all required." };
+  }
   if (password.length < 6) {
     return { error: "Password must be at least 6 characters." };
   }

@@ -82,6 +82,7 @@ export default function SignupPage() {
               placeholder="Jane Doe"
               icon={UserRound}
               autoComplete="name"
+              required
             />
             <Field
               label="Company / organisation"
@@ -90,6 +91,7 @@ export default function SignupPage() {
               placeholder="Acme Pvt Ltd"
               icon={Building2}
               autoComplete="organization"
+              required
             />
             <Field
               label="Email"
