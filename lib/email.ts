@@ -162,12 +162,14 @@ export async function notifyEmailTicketCreated(opts: {
 export async function notifyNewReply(opts: {
   to: string[];
   ticketId: string;
+  ticketNumber: number;
   subject: string;
   fromLabel: string;
 }) {
+  // "[#N]" lets an emailed reply find its way back to this ticket.
   await send(
     opts.to,
-    `New reply: ${opts.subject}`,
+    `[#${opts.ticketNumber}] New reply: ${opts.subject}`,
     wrap(
       `New reply from ${esc(opts.fromLabel)}`,
       [`There's a new reply on <strong>${esc(opts.subject)}</strong>.`],
@@ -180,12 +182,13 @@ export async function notifyNewReply(opts: {
 export async function notifyStatusChange(opts: {
   to: string[];
   ticketId: string;
+  ticketNumber: number;
   subject: string;
   statusLabel: string;
 }) {
   await send(
     opts.to,
-    `Status updated: ${opts.subject}`,
+    `[#${opts.ticketNumber}] Status updated: ${opts.subject}`,
     wrap(
       "Ticket status updated",
       [

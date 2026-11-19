@@ -62,6 +62,7 @@ export async function createTicket(
 
 type TicketForUpdate = {
   id: string;
+  number: number;
   subject: string;
   status: TicketStatus;
   assignee_id: string | null;
@@ -76,7 +77,7 @@ async function loadTicket(
   const { data, error } = await supabase
     .from("tickets")
     .select(
-      "id, subject, status, assignee_id, client:profiles!tickets_client_id_fkey(email), assignee:profiles!tickets_assignee_id_fkey(full_name, email)",
+      "id, number, subject, status, assignee_id, client:profiles!tickets_client_id_fkey(email), assignee:profiles!tickets_assignee_id_fkey(full_name, email)",
     )
     .eq("id", ticketId)
     .single();
@@ -88,6 +89,7 @@ function emailClientStatus(t: TicketForUpdate, status: TicketStatus) {
   return notifyStatusChange({
     to: t.client?.email ? [t.client.email] : [],
     ticketId: t.id,
+    ticketNumber: t.number,
     subject: t.subject,
     statusLabel: STATUS_LABELS[status],
   });
@@ -109,6 +111,7 @@ export async function addReply(ticketId: string, formData: FormData) {
     await notifyNewReply({
       to: t.client?.email ? [t.client.email] : [],
       ticketId,
+      ticketNumber: t.number,
       subject: t.subject,
       fromLabel: displayName(profile),
     });

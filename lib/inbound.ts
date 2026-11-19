@@ -79,3 +79,22 @@ export function senderAuthenticated(
 ): boolean {
   return auth?.dmarc === "pass" || auth?.dkim === "pass";
 }
+
+// "Re: [#12] New reply: Printer down" -> 12. Null when there is no tag.
+export function ticketNumberFromSubject(subject: string | null | undefined): number | null {
+  const m = (subject ?? "").match(/\[#(\d{1,9})\]/);
+  return m ? Number(m[1]) : null;
+}
+
+// Keep only the new text of an emailed reply: cut at the "On ... wrote:" line
+// (Gmail may wrap it over two lines) or an Outlook header block, and drop any
+// leftover "> " quoted lines.
+export function stripQuotedReply(body: string): string {
+  const cut = body.search(/^On [^\n]*(\n[^\n]*)?wrote:\s*$|^-{2,}\s*Original Message\s*-{2,}|^From: .*\n(Sent|Date): /im);
+  const head = cut >= 0 ? body.slice(0, cut) : body;
+  return head
+    .split("\n")
+    .filter((line) => !line.startsWith(">"))
+    .join("\n")
+    .trim();
+}

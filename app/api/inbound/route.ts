@@ -11,8 +11,16 @@
 // - Logs carry ids and outcomes only, never email content.
 import { NextResponse, type NextRequest } from "next/server";
 import { createAdmin } from "@/lib/supabase/admin";
-import { bodyText, isAutomated, parseAddress, senderAuthenticated, verifyWebhook } from "@/lib/inbound";
-import { notifyEmailTicketCreated, notifyNewTicket, notifyPendingTicket } from "@/lib/email";
+import {
+  bodyText,
+  isAutomated,
+  parseAddress,
+  senderAuthenticated,
+  stripQuotedReply,
+  ticketNumberFromSubject,
+  verifyWebhook,
+} from "@/lib/inbound";
+import { notifyEmailTicketCreated, notifyNewReply, notifyNewTicket, notifyPendingTicket } from "@/lib/email";
 import { slackNewTicket, slackPendingTicket } from "@/lib/slack";
 import { PRIORITY_LABELS } from "@/lib/tickets";
 
@@ -109,6 +117,37 @@ export async function POST(request: NextRequest) {
       !!profile && !!(await db.auth.admin.getUserById(profile.id)).data.user?.email_confirmed_at;
     if (!profile || !verified) {
       return pending(fromAddr, subject, body, profile ? "sender email not verified" : "sender not registered");
+    }
+
+    // A reply to one of our "[#N]" emails joins that ticket instead of opening
+    // a new one, but only if the ticket belongs to this sender.
+    const replyTo = ticketNumberFromSubject(subject);
+    if (replyTo) {
+      const { data: existing } = await db
+        .from("tickets")
+        .select("id, number, subject")
+        .eq("number", replyTo)
+        .eq("client_id", profile.id)
+        .maybeSingle();
+      if (existing) {
+        const replyBody = stripQuotedReply(body) || body;
+        const { error: replyError } = await db
+          .from("ticket_replies")
+          .insert({ ticket_id: existing.id, author_id: profile.id, body: replyBody });
+        if (replyError) throw replyError;
+        await finish("created", "reply by email", existing.id);
+
+        const { data: admins } = await db.from("profiles").select("email").eq("role", "admin");
+        await notifyNewReply({
+          to: (admins ?? []).map((a) => a.email).filter(Boolean),
+          ticketId: existing.id,
+          ticketNumber: existing.number,
+          subject: existing.subject,
+          fromLabel: profile.full_name || profile.email,
+        });
+        console.log(`[inbound] ${emailId} -> reply on ticket #${existing.number}`);
+        return NextResponse.json({ outcome: "reply", ticket: existing.number });
+      }
     }
 
     const { data: ticket, error } = await db

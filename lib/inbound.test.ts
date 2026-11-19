@@ -1,7 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
-import { bodyText, isAutomated, parseAddress, senderAuthenticated, verifyWebhook } from "./inbound.ts";
+import {
+  bodyText,
+  isAutomated,
+  parseAddress,
+  senderAuthenticated,
+  stripQuotedReply,
+  ticketNumberFromSubject,
+  verifyWebhook,
+} from "./inbound.ts";
 
 const secret = "whsec_" + Buffer.from("test-secret-key").toString("base64");
 function sign(id: string, ts: string, body: string) {
@@ -58,4 +66,18 @@ test("only DKIM or DMARC pass counts as authenticated", () => {
   assert.equal(senderAuthenticated({ dkim: "pass" }), true);
   assert.equal(senderAuthenticated({ dmarc: "pass" }), true);
   assert.equal(senderAuthenticated(null), false);
+});
+
+test("ticketNumberFromSubject finds the [#N] tag", () => {
+  assert.equal(ticketNumberFromSubject("Re: [#3] New reply: printer down"), 3);
+  assert.equal(ticketNumberFromSubject("printer down"), null);
+  assert.equal(ticketNumberFromSubject(undefined), null);
+});
+
+test("stripQuotedReply keeps only the new text", () => {
+  const gmail = "thanks, fixed now\n\nOn Fri, Nov 20, 2026 at 12:06 AM UruDesk Support <support@example.com>\nwrote:\n\n> New reply from sayak\n>\n";
+  assert.equal(stripQuotedReply(gmail), "thanks, fixed now");
+  assert.equal(stripQuotedReply("one line\nOn Mon, Bob wrote:\n> old"), "one line");
+  assert.equal(stripQuotedReply("hi\n-----Original Message-----\nFrom: x"), "hi");
+  assert.equal(stripQuotedReply("no quote here"), "no quote here");
 });
