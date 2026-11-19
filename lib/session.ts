@@ -5,20 +5,21 @@ import type { UserRole } from "@/lib/roles";
 export type Profile = { id: string; email: string; full_name: string; role: UserRole };
 
 // Every signed-in page and action starts here. Returns the RLS-bound client
-// and the caller's profile, or redirects to /login.
+// and the caller's profile, or redirects to the login page at /.
 export async function requireProfile() {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/");
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("id, email, full_name, role")
     .eq("id", user.id)
     .single();
-  if (!profile) redirect("/login");
+  // Signed in but no profile row: say so, rather than looping back to a blank login.
+  if (!profile) redirect("/?error=no_profile");
 
   return { supabase, profile: profile as Profile };
 }

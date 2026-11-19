@@ -77,7 +77,7 @@ export async function signIn(
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
-  redirect("/login");
+  redirect("/");
 }
 
 // Step 1 of password recovery: email the user a reset link. The link points at

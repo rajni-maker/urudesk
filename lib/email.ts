@@ -9,6 +9,8 @@
 // sending domain in Resend and set EMAIL_FROM.
 
 const FROM = process.env.EMAIL_FROM || "UruDesk <onboarding@resend.dev>";
+// Where client replies go: the Resend inbound address, so a reply lands in UruDesk.
+const REPLY_TO = process.env.EMAIL_REPLY_TO;
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
 async function send(to: string[], subject: string, html: string, ccList: string[] = []) {
@@ -57,7 +59,7 @@ async function send(to: string[], subject: string, html: string, ccList: string[
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ from: FROM, to: recipients, ...(cc.length ? { cc } : {}), subject, html }),
+      body: JSON.stringify({ from: FROM, to: recipients, ...(cc.length ? { cc } : {}), ...(REPLY_TO ? { reply_to: REPLY_TO } : {}), subject, html }),
     });
 
     // Resend answers 4xx with a JSON error (unverified domain, invalid

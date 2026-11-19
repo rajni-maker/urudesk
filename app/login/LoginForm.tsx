@@ -8,7 +8,7 @@ import AuthHero, { LOGIN_CARDS } from "@/components/auth/AuthHero";
 import Field from "@/components/auth/AuthField";
 import "@/components/auth/auth.css";
 
-export default function LoginForm({ linkError }: { linkError: boolean }) {
+export default function LoginForm({ linkError }: { linkError: string | null }) {
   const [state, formAction, pending] = useActionState<AuthState, FormData>(
     signIn,
     null,
@@ -95,7 +95,7 @@ export default function LoginForm({ linkError }: { linkError: boolean }) {
             {linkError && !state && (
               <p role="alert" className="flex items-start gap-2 rounded-xl border border-[#FECDD3] bg-[#FFF1F2] px-3.5 py-3 text-[13px] font-medium text-[#BE123C] dark:border-[#4C1D24] dark:bg-[#2A1015] dark:text-[#FDA4AF]">
                 <ShieldCheck className="mt-px h-4 w-4 shrink-0" strokeWidth={2} />
-                That link is invalid or has expired. Ask your admin for a new invite, or log in below.
+                {linkError}
               </p>
             )}
 

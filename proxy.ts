@@ -46,7 +46,7 @@ export async function proxy(request: NextRequest) {
   const under = (prefixes: string[]) =>
     prefixes.some((p) => path === p || path.startsWith(`${p}/`));
 
-  if (!user && !under(PUBLIC_PATHS)) return redirectKeepingCookies(request, response, "/login");
+  if (!user && path !== "/" && !under(PUBLIC_PATHS)) return redirectKeepingCookies(request, response, "/");
 
   if (user && under(ADMIN_PATHS)) {
     const { data } = await supabase.from("profiles").select("role").eq("id", user.id).single();

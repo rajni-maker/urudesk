@@ -158,7 +158,7 @@ export default function SignupPage() {
           <p className="mt-8 border-t border-[#E2E8F0] pt-6 text-center text-sm text-[#64748B] dark:border-[#1E293B] dark:text-[#94A3B8]">
             Already have an account?{" "}
             <Link
-              href="/login"
+              href="/"
               className="rounded font-semibold text-[#4F46E5] outline-none transition-colors hover:text-[#4338CA] focus-visible:ring-2 focus-visible:ring-[#4F46E5]/40 dark:text-[#A5B4FC] dark:hover:text-[#C7D2FE]"
             >
               Sign in
