@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import AppShell from "@/components/dashboard/AppShell";
-import { requireProfile, displayName } from "@/lib/session";
+import { requireProfile } from "@/lib/session";
 import ContactForm from "./ContactForm";
 import "@/components/tickets/ticket-form.css";
 import "./company.css";
@@ -55,14 +55,19 @@ export default async function CompanyPage() {
             People <span className="co-count">{members.length}</span>
           </h2>
           <ul className="co-list">
-            {members.map((m) => (
+            {members.map((m) => {
+              // A missing name, or an email typed into the name box, would just
+              // repeat (or contradict) the address below - show the email once.
+              const name = m.full_name?.trim();
+              const hasName = !!name && !name.includes("@");
+              return (
               <li key={m.id} className="co-row">
                 <div className="co-who">
                   <span className="co-name">
-                    {displayName(m)}
+                    {hasName ? name : m.email}
                     {m.id === profile.id && <span className="co-you">You</span>}
                   </span>
-                  <a href={`mailto:${m.email}`} className="co-mail">{m.email}</a>
+                  {hasName && <a href={`mailto:${m.email}`} className="co-mail">{m.email}</a>}
                 </div>
                 <div className="co-phones">
                   {[m.phone, m.phone2].filter(Boolean).map((p) => (
@@ -71,7 +76,8 @@ export default async function CompanyPage() {
                   {!m.phone && !m.phone2 && <span className="co-none">No number</span>}
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </section>
       </div>

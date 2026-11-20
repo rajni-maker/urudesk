@@ -23,6 +23,9 @@ export async function signUp(
   // (migration 0005); this name is used when that company is first created.
   const companyName = String(formData.get("companyName") ?? "").trim().slice(0, 200);
 
+  if (fullName.includes("@")) {
+    return { error: "Enter your name, not an email address." };
+  }
   if (!fullName || !companyName || !email || !password) {
     return { error: "Name, company, email and password are all required." };
   }
