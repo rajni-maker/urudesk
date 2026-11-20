@@ -18,7 +18,7 @@ export async function inviteMember(_prev: InviteState, formData: FormData): Prom
   // The invite link itself comes from the dashboard email template (Task 1),
   // which points at /auth/confirm → /reset-password.
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, { data: { role: "admin" } });
-  if (error || !data.user) return { error: error?.message ?? "Invite failed." };
+  if (error || !data.user) return { error: inviteErrorMessage(error) };
 
   const { error: roleError } = await admin.from("profiles").update({ role: "admin", company_id: null }).eq("id", data.user.id);
   if (roleError) return { error: `Invited, but couldn't make them an admin: ${roleError.message}` };
@@ -40,4 +40,21 @@ export async function deleteMember(userId: string): Promise<{ error: string } | 
   revalidatePath("/tickets");
   revalidatePath("/dashboard");
   return null;
+}
+
+// Supabase Auth sometimes fails with no readable body (the message comes back
+// as "{}"), typically when its outgoing SMTP times out. Never show that raw.
+function inviteErrorMessage(error: { message?: string; status?: number; code?: string } | null): string {
+  console.error("inviteUserByEmail failed", error);
+  const msg = (error?.message ?? "").trim();
+  if (error?.status === 422 || /already been registered|already exists/i.test(msg)) {
+    return "That email already has an UruDesk account.";
+  }
+  if (error?.status === 429 || /rate limit/i.test(msg)) {
+    return "Too many emails sent recently. Wait a few minutes and try again.";
+  }
+  if (/sending|smtp|email/i.test(msg) || !msg || msg === "{}" || (error?.status ?? 0) >= 500) {
+    return "The invite email couldn't be sent. Check the SMTP settings in Supabase (Authentication → Emails → SMTP Settings) and try again.";
+  }
+  return msg;
 }
