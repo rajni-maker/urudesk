@@ -10,15 +10,16 @@ export default function DeleteButton({ userId, label }: { userId: string; label:
       type="button"
       disabled={pending}
       onClick={() => {
-        if (!confirm(`Delete ${label}? This removes their account and all their tickets. It can't be undone.`)) return;
+        if (!confirm(`Remove ${label} from the team? Their account and every reply they wrote on tickets will be deleted. This can't be undone.`)) return;
         start(async () => {
           const res = await deleteMember(userId);
           if (res?.error) alert(res.error);
         });
       }}
-      className="rounded-lg px-2.5 py-1 text-[12px] font-semibold text-[#f87171] hover:bg-[#f87171]/10 disabled:opacity-50"
+      className="tm-remove"
+      aria-label={`Remove ${label}`}
     >
-      {pending ? "Deleting…" : "Delete"}
+      {pending ? "Removing…" : "Remove"}
     </button>
   );
 }

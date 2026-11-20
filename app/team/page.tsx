@@ -1,37 +1,66 @@
 import AppShell from "@/components/dashboard/AppShell";
 import { requireAdmin, displayName } from "@/lib/session";
-import { roleLabel } from "@/lib/roles";
+import { initials, avatarGradient } from "@/components/dashboard/avatar";
 import InviteForm from "./InviteForm";
 import DeleteButton from "./DeleteButton";
+import "@/components/tickets/ticket-form.css";
+import "@/components/dashboard/admin.css";
+
+const joined = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
 
 export default async function TeamPage() {
   const { supabase, profile } = await requireAdmin();
-  const { data: members } = await supabase
+  const { data } = await supabase
     .from("profiles")
-    .select("id, full_name, email, role")
-    .eq("role", "admin") // internal staff only; clients live under Dashboard → Companies
+    .select("id, full_name, email, created_at")
+    .eq("role", "admin") // internal staff only; clients are under Dashboard → Companies
     .order("full_name");
+  const members = data ?? [];
 
   return (
     <AppShell profile={profile} current="team">
-      <h1 className="psd-title text-[28px] font-bold tracking-[-0.025em]">Team</h1>
-      <p className="mb-6 mt-1 text-[15px] text-[#a8a8c4]">Internal support staff who can see and answer every ticket.</p>
-      <div className="mb-6">
-        <InviteForm />
-      </div>
-      <div className="psd-card overflow-hidden rounded-2xl">
-        <ul className="divide-y divide-white/[0.06]">
-          {(members ?? []).map((m) => (
-            <li key={m.id} className="flex flex-wrap items-center gap-4 px-5 py-3.5">
-              <span className="flex-1 font-medium">{displayName(m)}</span>
-              <span className="text-[13px] text-[#a0a0b8]">{m.email}</span>
-              <span className="w-32 text-right text-[13px] text-[#6b6b8a]">{roleLabel(m.role)}</span>
-              <span className="w-20 text-right">
-                {m.id !== profile.id && <DeleteButton userId={m.id} label={m.email} />}
-              </span>
-            </li>
-          ))}
-        </ul>
+      <div className="mx-auto w-full max-w-[820px]">
+        <div className="ad-head">
+          <div>
+            <h1 className="ad-title">Team</h1>
+            <p className="ad-sub">Support staff who can see, assign and answer every ticket.</p>
+          </div>
+        </div>
+
+        <section className="ad-card tm-invite" aria-labelledby="invite-title">
+          <h2 id="invite-title" className="ad-h2">Invite a teammate</h2>
+          <p className="tm-help">They&apos;ll get an email to set a password, then join as an admin.</p>
+          <InviteForm />
+        </section>
+
+        <section className="ad-card" aria-labelledby="members-title">
+          <div className="ad-card-head">
+            <h2 id="members-title" className="ad-h2">
+              Members <span className="ad-count">{members.length}</span>
+            </h2>
+          </div>
+          <ul className="ad-list">
+            {members.map((m) => {
+              const name = displayName(m);
+              const me = m.id === profile.id;
+              return (
+                <li key={m.id} className="tm-row">
+                  <span className={`tm-avatar ${avatarGradient(m.id)}`} aria-hidden>{initials(name)}</span>
+                  <span className="tm-who">
+                    <span className="tm-name">
+                      {name}
+                      {me && <span className="tm-tag tm-tag-you">You</span>}
+                    </span>
+                    <span className="tm-email">{m.email}</span>
+                  </span>
+                  <span className="tm-joined">Joined {joined(m.created_at)}</span>
+                  {me ? <span className="tm-spacer" aria-hidden /> : <DeleteButton userId={m.id} label={name} />}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
       </div>
     </AppShell>
   );
