@@ -9,12 +9,13 @@ export default async function TeamPage() {
   const { data: members } = await supabase
     .from("profiles")
     .select("id, full_name, email, role")
-    .order("role")
+    .eq("role", "admin") // internal staff only; clients live under Dashboard → Companies
     .order("full_name");
 
   return (
     <AppShell profile={profile} current="team">
-      <h1 className="psd-title mb-6 text-[28px] font-bold tracking-[-0.025em]">Team</h1>
+      <h1 className="psd-title text-[28px] font-bold tracking-[-0.025em]">Team</h1>
+      <p className="mb-6 mt-1 text-[15px] text-[#a8a8c4]">Internal support staff who can see and answer every ticket.</p>
       <div className="mb-6">
         <InviteForm />
       </div>
