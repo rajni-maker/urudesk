@@ -1,0 +1,172 @@
+/* Ticket form + rich text. The form sits on a surface one step lighter than
+   the page (#0a0a1a), and inputs get a visible border at rest — not only on focus. */
+
+.nt-card {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  background: #15152e;
+  border: 1px solid #2a2a4a;
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+@media (max-width: 480px) {
+  .nt-card { padding: 18px 16px; gap: 20px; border-radius: 12px; }
+}
+
+.nt-field { display: flex; flex-direction: column; gap: 6px; border: 0; padding: 0; margin: 0; min-width: 0; }
+.nt-label { font-size: 14px; font-weight: 600; color: #f0f0f5; }
+.nt-req { color: #c4b5fd; }
+.nt-help { font-size: 12.5px; color: #9a9ab8; }
+.nt-error { font-size: 13px; color: #fca5a5; }
+
+.nt-input {
+  width: 100%;
+  background-color: #0d0d22;
+  border: 1px solid #3d3d63;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 15px;
+  color: #f0f0f5;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.nt-input::placeholder { color: #75759a; }
+.nt-input:hover { border-color: #55558a; }
+.nt-input:focus { outline: none; border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25); }
+.nt-input[aria-invalid="true"] { border-color: #ef4444; }
+
+/* Editor */
+.rte {
+  background: #0d0d22;
+  border: 1px solid #3d3d63;
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+.rte:hover { border-color: #55558a; }
+.rte:focus-within { border-color: #8b5cf6; box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25); }
+.rte-invalid { border-color: #ef4444; }
+.rte-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  min-height: 41px;
+  padding: 4px 6px;
+  background: #1b1b38;
+  border-bottom: 1px solid #2f2f52;
+}
+.rte-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 6px;
+  border-radius: 6px;
+  color: #c8c8dc;
+  font-size: 14px;
+}
+.rte-btn:hover { background: #2a2a4d; color: #fff; }
+.rte-btn:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 1px; }
+.rte-btn-on { background: rgba(139, 92, 246, 0.25); color: #ddd6fe; }
+.rte-sep { margin-left: 8px; position: relative; }
+.rte-sep::before { content: ""; position: absolute; left: -5px; top: 7px; bottom: 7px; width: 1px; background: #34345a; }
+.rte-content { padding: 12px 14px; outline: none; font-size: 15px; line-height: 1.6; color: #f0f0f5; }
+.rte-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  color: #75759a;
+  pointer-events: none;
+}
+
+/* Shared rendering for editor content and stored ticket/reply HTML. */
+.rte-content, .rich-body { overflow-wrap: anywhere; }
+.rte-content > * + *, .rich-body > * + * { margin-top: 0.6em; }
+.rte-content ul, .rich-body ul { list-style: disc; padding-left: 1.4em; }
+.rte-content ol, .rich-body ol { list-style: decimal; padding-left: 1.4em; }
+.rte-content li > p, .rich-body li > p { margin: 0; }
+.rte-content a, .rich-body a { color: #c4b5fd; text-decoration: underline; }
+.rte-content code, .rich-body code {
+  background: #23234a; border-radius: 4px; padding: 1px 5px; font-size: 0.9em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.rte-content pre, .rich-body pre {
+  background: #070716; border: 1px solid #2a2a4a; border-radius: 8px; padding: 10px 12px; overflow-x: auto;
+}
+.rte-content pre code, .rich-body pre code { background: none; padding: 0; }
+.rte-content blockquote, .rich-body blockquote { border-left: 3px solid #4b4b7a; padding-left: 12px; color: #c8c8dc; }
+
+/* Guidance */
+.nt-tip {
+  margin-top: 4px;
+  background: rgba(139, 92, 246, 0.08);
+  border: 1px solid rgba(139, 92, 246, 0.22);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: #b8b8d0;
+}
+.nt-tip ul { margin-top: 4px; list-style: disc; padding-left: 1.2em; }
+
+/* Attachments */
+.nt-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 18px 14px;
+  text-align: center;
+  font-size: 14px;
+  color: #c8c8dc;
+  background: #0d0d22;
+  border: 1.5px dashed #46466f;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+.nt-drop:hover, .nt-drop-on { border-color: #8b5cf6; background: rgba(139, 92, 246, 0.08); }
+.nt-drop:focus-visible { outline: 2px solid #8b5cf6; outline-offset: 2px; }
+.nt-drop svg { color: #a78bfa; }
+.nt-files { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.nt-file {
+  display: flex; align-items: center; gap: 10px;
+  background: #1b1b38; border: 1px solid #2f2f52; border-radius: 8px; padding: 8px 8px 8px 12px;
+}
+.nt-file-err { border-color: #7f1d1d; background: #221021; }
+.nt-bar { margin-top: 5px; height: 4px; border-radius: 2px; background: #2f2f52; overflow: hidden; }
+.nt-bar > div { height: 100%; background: #8b5cf6; transition: width 150ms linear; }
+.nt-remove {
+  flex-shrink: 0; width: 32px; height: 32px; border-radius: 6px; font-size: 20px; line-height: 1; color: #a8a8c4;
+}
+.nt-remove:hover { background: #2a2a4d; color: #fff; }
+
+/* Priority */
+.nt-prio {
+  display: flex; flex-direction: column; gap: 2px; cursor: pointer;
+  background: #0d0d22; border: 1px solid #3d3d63; border-radius: 8px; padding: 10px 12px;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+.nt-prio:hover { border-color: #55558a; }
+.nt-prio-on { border-color: #8b5cf6; background: rgba(139, 92, 246, 0.12); box-shadow: inset 0 0 0 1px #8b5cf6; }
+.nt-prio:has(input:focus-visible) { outline: 2px solid #8b5cf6; outline-offset: 2px; }
+
+/* Actions */
+.nt-actions {
+  display: flex; justify-content: flex-end; align-items: center; gap: 10px;
+  padding-top: 18px; border-top: 1px solid #2a2a4a;
+}
+.nt-cancel { padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 500; color: #c8c8dc; }
+.nt-cancel:hover { background: #22223f; color: #fff; }
+.nt-submit {
+  padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; color: #fff;
+  background: #7c3aed; transition: background 150ms ease;
+}
+.nt-submit:hover:not(:disabled) { background: #6d28d9; }
+.nt-submit:focus-visible { outline: 2px solid #c4b5fd; outline-offset: 2px; }
+.nt-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+@media (max-width: 480px) {
+  .nt-actions { flex-direction: column-reverse; align-items: stretch; }
+  .nt-cancel, .nt-submit { text-align: center; }
+}

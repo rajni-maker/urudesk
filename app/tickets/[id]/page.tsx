@@ -15,7 +15,11 @@ import {
   type TicketStatus,
   type TicketPriority,
 } from "@/lib/tickets";
-import { addReply, assignTicket, changePriority, changeStatus } from "../actions";
+import { assignTicket, changePriority, changeStatus } from "../actions";
+import ReplyBox from "@/components/tickets/ReplyBox";
+import { sanitizeTicketHtml } from "@/lib/richtext";
+import { formatBytes } from "@/lib/attachments";
+import "@/components/tickets/ticket-form.css";
 import { approvePendingTicket, rejectPendingTicket } from "../pending-actions";
 
 type Person = { id: string; full_name: string; email: string; role: string } | null;
@@ -24,6 +28,7 @@ type Ticket = {
   number: number;
   subject: string;
   body: string;
+  body_html: string | null;
   status: TicketStatus;
   priority: TicketPriority;
   created_at: string;
@@ -32,7 +37,17 @@ type Ticket = {
   client: Person;
   assignee: Person;
 };
-type Reply = { id: string; body: string; created_at: string; author: Person };
+type Reply = { id: string; body: string; body_html: string | null; created_at: string; author: Person };
+type Attachment = { id: string; file_name: string; mime_type: string; size_bytes: number };
+
+/** Stored HTML is sanitised on write; sanitise again on render in case of older or hand-edited rows. */
+function Body({ text, html, className }: { text: string; html: string | null; className: string }) {
+  return html ? (
+    <div className={`rich-body ${className}`} dangerouslySetInnerHTML={{ __html: sanitizeTicketHtml(html) }} />
+  ) : (
+    <p className={`whitespace-pre-wrap ${className}`}>{text}</p>
+  );
+}
 type Event = {
   id: string;
   kind: "status" | "assign";
@@ -45,22 +60,29 @@ type Event = {
 const PERSON = "id, full_name, email, role";
 const label = (v: string | null) => (isStatus(v) ? STATUS_LABELS[v] : v ?? "—");
 
-export default async function TicketPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function TicketPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ created?: string; attachments?: string }>;
+}) {
   const { id } = await params;
+  const flags = await searchParams;
   const { supabase, profile } = await requireProfile();
   const admin = profile.role === "admin";
 
-  const [{ data: ticket }, { data: replies }, { data: events }, { data: admins }] = await Promise.all([
+  const [{ data: ticket }, { data: replies }, { data: events }, { data: admins }, { data: attachments }] = await Promise.all([
     supabase
       .from("tickets")
       .select(
-        `id, number, subject, body, status, priority, created_at, assignee_id, pending_email, client:profiles!tickets_client_id_fkey(${PERSON}), assignee:profiles!tickets_assignee_id_fkey(${PERSON})`,
+        `id, number, subject, body, body_html, status, priority, created_at, assignee_id, pending_email, client:profiles!tickets_client_id_fkey(${PERSON}), assignee:profiles!tickets_assignee_id_fkey(${PERSON})`,
       )
       .eq("id", id)
       .maybeSingle(),
     supabase
       .from("ticket_replies")
-      .select(`id, body, created_at, author:profiles!ticket_replies_author_id_fkey(${PERSON})`)
+      .select(`id, body, body_html, created_at, author:profiles!ticket_replies_author_id_fkey(${PERSON})`)
       .eq("ticket_id", id)
       .order("created_at"),
     supabase
@@ -71,6 +93,11 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
     admin
       ? supabase.from("profiles").select("id, full_name, email").eq("role", "admin").order("full_name")
       : Promise.resolve({ data: [] as { id: string; full_name: string; email: string }[] }),
+    supabase
+      .from("ticket_attachments")
+      .select("id, file_name, mime_type, size_bytes")
+      .eq("ticket_id", id)
+      .order("created_at"),
   ]);
 
   // RLS returns nothing for someone else's ticket, so that's a 404 rather than a leak.
@@ -82,6 +109,17 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
       <Link href="/tickets" className="mb-4 inline-block text-sm text-[#a0a0b8] hover:text-[#f0f0f5]">
         ← All tickets
       </Link>
+
+      {flags.created && (
+        <p role="status" className="mb-4 rounded-xl border border-[#22c55e]/30 bg-[#22c55e]/10 px-4 py-3 text-sm text-[#86efac]">
+          Ticket #{t.number} created. We&apos;ve notified the support team and will reply here and by email.
+        </p>
+      )}
+      {flags.attachments === "failed" && (
+        <p role="alert" className="mb-4 rounded-xl border border-[#ef4444]/30 bg-[#ef4444]/10 px-4 py-3 text-sm text-[#fca5a5]">
+          The ticket was created, but its attachments couldn&apos;t be saved. Please add them in a reply or email them to support.
+        </p>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <section className="flex flex-col gap-4">
@@ -119,7 +157,31 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
                 {PRIORITY_LABELS[t.priority]}
               </span>
             </div>
-            <p className="mt-4 whitespace-pre-wrap text-[15px] leading-relaxed text-[#d0d0e0]">{t.body}</p>
+            <Body text={t.body} html={t.body_html} className="mt-4 text-[15px] leading-relaxed text-[#d0d0e0]" />
+            {((attachments ?? []) as Attachment[]).length > 0 && (
+              <div className="mt-5 border-t border-white/10 pt-4">
+                <p className="mb-2 text-[13px] font-semibold text-[#a0a0b8]">Attachments</p>
+                <ul className="flex flex-wrap gap-2">
+                  {((attachments ?? []) as Attachment[]).map((a) => {
+                    const href = `/tickets/${t.id}/attachments/${a.id}`;
+                    const image = a.mime_type.startsWith("image/");
+                    return (
+                      <li key={a.id}>
+                        <a
+                          href={image ? `${href}?inline` : href}
+                          target={image ? "_blank" : undefined}
+                          rel="noopener noreferrer"
+                          className="nt-file max-w-[280px] text-[14px] text-[#f0f0f5] hover:border-[#8b5cf6]"
+                        >
+                          <span className="truncate">{a.file_name}</span>
+                          <span className="shrink-0 text-[12px] text-[#9a9ab8]">{formatBytes(a.size_bytes)}</span>
+                        </a>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
           </div>
 
           {((replies ?? []) as unknown as Reply[]).map((r) => (
@@ -128,22 +190,11 @@ export default async function TicketPage({ params }: { params: Promise<{ id: str
                 <span className="font-semibold text-[#f0f0f5]">{displayName(r.author)}</span> ·{" "}
                 {roleLabel(r.author?.role)} · {formatDateTime(r.created_at)}
               </p>
-              <p className="mt-2 whitespace-pre-wrap text-[15px] text-[#d0d0e0]">{r.body}</p>
+              <Body text={r.body} html={r.body_html} className="mt-2 text-[15px] text-[#d0d0e0]" />
             </div>
           ))}
 
-          <form action={addReply.bind(null, t.id)} className="psd-card flex flex-col gap-3 rounded-2xl p-5">
-            <textarea
-              name="body"
-              required
-              rows={4}
-              placeholder="Write a reply…"
-              className="psd-input rounded-xl px-4 py-3 text-[15px] text-[#f0f0f5]"
-            />
-            <button type="submit" className="self-end rounded-xl bg-gradient-to-br from-[#8b5cf6] to-[#7c3aed] px-5 py-2.5 text-sm font-semibold text-white">
-              Send reply
-            </button>
-          </form>
+          <ReplyBox ticketId={t.id} />
         </section>
 
         <aside className="flex flex-col gap-4">
