@@ -18,12 +18,14 @@ export default function DashboardNav({
   role: string;
   admin: boolean;
   /* Which nav entry to mark as the current page. */
-  current: "dashboard" | "tickets" | "team";
+  current: "dashboard" | "tickets" | "team" | "company";
 }) {
   const links = [
     ...(admin ? [{ href: "/dashboard", label: "Dashboard", key: "dashboard" }] : []),
     { href: "/tickets", label: "Tickets", key: "tickets" },
-    ...(admin ? [{ href: "/team", label: "Team", key: "team" }] : []),
+    ...(admin
+      ? [{ href: "/team", label: "Team", key: "team" }]
+      : [{ href: "/company", label: "Company", key: "company" }]),
 ].map((l) => ({ ...l, active: l.key === current }));
 
   return (

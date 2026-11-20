@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { checkPhones } from "@/lib/phone";
 
 // Shape of what these actions return to the form when something goes wrong.
 export type AuthState = { error: string } | null;
@@ -18,7 +19,8 @@ export async function signUp(
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const fullName = String(formData.get("fullName") ?? "").trim();
-  // Stored as plain text for now; organisations come in a later phase.
+  // The DB trigger groups the user into a company by work email domain
+  // (migration 0005); this name is used when that company is first created.
   const companyName = String(formData.get("companyName") ?? "").trim().slice(0, 200);
 
   if (!fullName || !companyName || !email || !password) {
@@ -27,6 +29,8 @@ export async function signUp(
   if (password.length < 6) {
     return { error: "Password must be at least 6 characters." };
   }
+  const phones = checkPhones(formData.get("phone"), formData.get("phone2"));
+  if ("error" in phones) return phones;
 
   const h = await headers();
   const origin =
@@ -38,7 +42,7 @@ export async function signUp(
     email,
     password,
     options: {
-      data: { full_name: fullName, company_name: companyName },
+      data: { full_name: fullName, company_name: companyName, phone: phones.phone, phone2: phones.phone2 },
       emailRedirectTo: `${origin}/auth/callback?next=/tickets`,
     },
   });

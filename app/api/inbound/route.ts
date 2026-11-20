@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
 
     const { data: profile } = await db
       .from("profiles")
-      .select("id, email, full_name, role")
+      .select("id, email, full_name, role, company_id")
       .eq("email", fromAddr)
       .maybeSingle();
     if (profile && profile.role !== "client") return hold("sender is an admin, not a client");
@@ -120,14 +120,17 @@ export async function POST(request: NextRequest) {
     }
 
     // A reply to one of our "[#N]" emails joins that ticket instead of opening
-    // a new one, but only if the ticket belongs to this sender.
+    // a new one, but only if the ticket belongs to this sender or their company.
     const replyTo = ticketNumberFromSubject(subject);
     if (replyTo) {
+      const owner = profile.company_id
+        ? `client_id.eq.${profile.id},company_id.eq.${profile.company_id}`
+        : `client_id.eq.${profile.id}`;
       const { data: existing } = await db
         .from("tickets")
         .select("id, number, subject")
         .eq("number", replyTo)
-        .eq("client_id", profile.id)
+        .or(owner)
         .maybeSingle();
       if (existing) {
         const replyBody = stripQuotedReply(body) || body;

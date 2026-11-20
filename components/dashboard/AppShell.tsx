@@ -10,7 +10,7 @@ export default function AppShell({
   children,
 }: {
   profile: Profile;
-  current: "dashboard" | "tickets" | "team";
+  current: "dashboard" | "tickets" | "team" | "company";
   children: React.ReactNode;
 }) {
   return (

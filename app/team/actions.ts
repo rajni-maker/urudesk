@@ -20,7 +20,7 @@ export async function inviteMember(_prev: InviteState, formData: FormData): Prom
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, { data: { role: "admin" } });
   if (error || !data.user) return { error: error?.message ?? "Invite failed." };
 
-  const { error: roleError } = await admin.from("profiles").update({ role: "admin" }).eq("id", data.user.id);
+  const { error: roleError } = await admin.from("profiles").update({ role: "admin", company_id: null }).eq("id", data.user.id);
   if (roleError) return { error: `Invited, but couldn't make them an admin: ${roleError.message}` };
 
   revalidatePath("/team");

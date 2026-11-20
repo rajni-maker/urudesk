@@ -234,3 +234,6 @@ select.tl-control option { background: #11112a; color: #f0f0f5; }
   .tl-row .tl-col-agent { grid-area: agent; display: block; justify-self: end; }
   .tl-row .tl-col-time { grid-area: time; }
 }
+
+/* Company name after the client on admin rows. */
+.tl-company { color: #8a8aa6; }

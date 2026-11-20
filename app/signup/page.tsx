@@ -8,6 +8,7 @@ import {
   Check,
   Lock,
   Mail,
+  Phone,
   ShieldCheck,
   Sparkles,
   UserRound,
@@ -91,6 +92,7 @@ export default function SignupPage() {
               placeholder="Acme Pvt Ltd"
               icon={Building2}
               autoComplete="organization"
+              hint="Colleagues who sign up with the same work email join this company and see its tickets."
               required
             />
             <Field
@@ -101,6 +103,23 @@ export default function SignupPage() {
               icon={Mail}
               autoComplete="email"
               required
+            />
+            <Field
+              label="Phone number"
+              name="phone"
+              type="tel"
+              placeholder="+91 98765 43210"
+              icon={Phone}
+              autoComplete="tel"
+              required
+            />
+            <Field
+              label="Second phone number"
+              name="phone2"
+              type="tel"
+              placeholder="Another number we can reach you on"
+              icon={Phone}
+              autoComplete="tel"
             />
             <Field
               label="Password"

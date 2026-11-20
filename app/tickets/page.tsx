@@ -26,10 +26,14 @@ type Row = {
   created_at: string;
   updated_at: string;
   pending_email: string | null;
+  client_id: string | null;
+  company: { name: string } | null;
   client: Person;
   assignee: Person;
 };
 type Param = string | string[] | undefined;
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const SEARCH_ICON = (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
@@ -41,13 +45,16 @@ const SEARCH_ICON = (
 export default async function TicketsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: Param; priority?: Param; q?: Param }>;
+  searchParams: Promise<{ status?: Param; priority?: Param; q?: Param; company?: Param }>;
 }) {
   const { supabase, profile } = await requireProfile();
   const sp = await searchParams;
   const filters = parseFilters(sp);
   const q = (Array.isArray(sp.q) ? sp.q[0] : sp.q)?.trim().slice(0, 100) ?? "";
   const admin = profile.role === "admin";
+  // Company filter is admin-only; clients already see just their own company.
+  const companyRaw = Array.isArray(sp.company) ? sp.company[0] : sp.company;
+  const companyId = admin && companyRaw && UUID.test(companyRaw) ? companyRaw : null;
 
   // "#42" or "42" jumps to a ticket number; anything else matches the subject.
   // LIKE wildcards in the user's text are escaped so they match literally.
@@ -61,6 +68,7 @@ export default async function TicketsPage({
   const narrow = <T,>(query: T): T => {
     let out = query as unknown as Narrowable;
     if (filters.priority) out = out.eq("priority", filters.priority);
+    if (companyId) out = out.eq("company_id", companyId);
     if (numberMatch) out = out.eq("number", Number(numberMatch[1]));
     else if (q) out = out.ilike("subject", subjectPattern);
     return out as unknown as T;
@@ -70,13 +78,16 @@ export default async function TicketsPage({
     supabase
       .from("tickets")
       .select(
-        "id, number, subject, status, priority, created_at, updated_at, pending_email, client:profiles!tickets_client_id_fkey(full_name, email), assignee:profiles!tickets_assignee_id_fkey(full_name, email)",
+        "id, number, subject, status, priority, created_at, updated_at, pending_email, client_id, company:companies(name), client:profiles!tickets_client_id_fkey(full_name, email), assignee:profiles!tickets_assignee_id_fkey(full_name, email)",
       ),
   );
   if (filters.status) list = list.eq("status", filters.status);
 
-  const [{ data, error }, ...counts] = await Promise.all([
+  const [{ data, error }, { data: companyRows }, ...counts] = await Promise.all([
     list.order("updated_at", { ascending: false }),
+    admin
+      ? supabase.from("companies").select("id, name").order("name")
+      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
     ...STATUS_OPTIONS.map((s) =>
       narrow(supabase.from("tickets").select("id", { count: "exact", head: true })).eq("status", s),
     ),
@@ -84,7 +95,8 @@ export default async function TicketsPage({
   const tickets = (data ?? []) as unknown as Row[];
   const countFor = Object.fromEntries(STATUS_OPTIONS.map((s, i) => [s, counts[i].count ?? 0])) as Record<TicketStatus, number>;
   const total = STATUS_OPTIONS.reduce((n, s) => n + countFor[s], 0);
-  const filtered = Boolean(filters.status || filters.priority || q);
+  const filtered = Boolean(filters.status || filters.priority || q || companyId);
+  const companies = (companyRows ?? []) as { id: string; name: string }[];
 
   // Links keep the other filters, so switching tabs doesn't throw away a search.
   const href = (status: TicketStatus | null) => {
@@ -92,6 +104,7 @@ export default async function TicketsPage({
     if (status) p.set("status", status);
     if (filters.priority) p.set("priority", filters.priority);
     if (q) p.set("q", q);
+    if (companyId) p.set("company", companyId);
     const s = p.toString();
     return s ? `/tickets?${s}` : "/tickets";
   };
@@ -110,7 +123,7 @@ export default async function TicketsPage({
               {admin ? "All tickets" : "My tickets"}
             </h1>
             <p className="mt-1 text-[15px] text-[#a8a8c4]">
-              {admin ? "Every request from every client, most recently updated first." : "Track the status of your requests and reply to our team."}
+              {admin ? "Every request from every client, most recently updated first." : "Requests from you and your colleagues, most recently updated first."}
             </p>
           </div>
           <Link href="/tickets/new" className="tl-primary">
@@ -156,6 +169,17 @@ export default async function TicketsPage({
               ))}
             </AutoSubmitSelect>
           </label>
+          {admin && companies.length > 0 && (
+            <label>
+              <span className="sr-only">Company</span>
+              <AutoSubmitSelect name="company" defaultValue={companyId ?? ""} className="tl-control">
+                <option value="">All companies</option>
+                {companies.map((co) => (
+                  <option key={co.id} value={co.id}>{co.name}</option>
+                ))}
+              </AutoSubmitSelect>
+            </label>
+          )}
           <button type="submit" className="tl-btn">Search</button>
           {filtered && <Link href="/tickets" className="tl-clear">Clear filters</Link>}
           <span className="tl-summary" aria-live="polite">
@@ -215,12 +239,18 @@ export default async function TicketsPage({
                         <span className="tl-meta">
                           {admin ? (
                             t.client ? (
-                              displayName(t.client)
+                              <>
+                                {displayName(t.client)}
+                                {t.company && <span className="tl-company"> · {t.company.name}</span>}
+                              </>
                             ) : (
                               <span className="tl-pending">Awaiting approval · {t.pending_email}</span>
                             )
                           ) : (
-                            <>Opened {formatDateTime(t.created_at)}</>
+                            <>
+                              Opened {formatDateTime(t.created_at)}
+                              {t.client_id !== profile.id && t.client && <> by {displayName(t.client)}</>}
+                            </>
                           )}
                         </span>
                       </span>

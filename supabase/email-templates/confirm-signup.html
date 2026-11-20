@@ -1,0 +1,40 @@
+<!-- UruDesk: Supabase Auth "Confirm signup" template.
+     Paste into Supabase Dashboard → Authentication → Email Templates → Confirm signup.
+     Subject: Confirm your UruDesk account -->
+<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f4f5f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f172a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f5f8;padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border:1px solid #e2e5ec;border-radius:12px;">
+            <tr>
+              <td style="padding:28px 32px 0;">
+                <span style="display:inline-block;width:28px;height:28px;line-height:28px;text-align:center;border-radius:7px;background:#5b4ff0;color:#ffffff;font-weight:700;font-size:15px;vertical-align:middle;">U</span>
+                <span style="font-size:17px;font-weight:700;vertical-align:middle;margin-left:8px;">UruDesk</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px 32px 8px;">
+                <h1 style="margin:0 0 12px;font-size:20px;line-height:1.3;">Confirm your email address</h1>
+                <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#475569;">
+                  Thanks for creating an UruDesk account. Confirm your email to start raising and tracking support tickets with Dream Notion.
+                </p>
+                <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#5b4ff0;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:8px;">Confirm email address</a>
+                <p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:#64748b;">
+                  If the button doesn't work, copy this link into your browser:<br>
+                  <a href="{{ .ConfirmationURL }}" style="color:#5b4ff0;word-break:break-all;">{{ .ConfirmationURL }}</a>
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px 32px 28px;border-top:1px solid #eef0f4;font-size:12px;line-height:1.6;color:#94a3b8;">
+                You received this because someone signed up to support.dreamnotion.com with this address. If it wasn't you, you can ignore this email.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

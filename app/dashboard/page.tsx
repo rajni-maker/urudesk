@@ -23,6 +23,24 @@ export default async function DashboardPage() {
   );
   const max = Math.max(1, ...counts.map((c) => c.count));
 
+  // Per-company totals: one light query (company_id + status), tallied here.
+  const [{ data: companyRows }, { data: ticketRows }, { data: memberRows }] = await Promise.all([
+    supabase.from("companies").select("id, name, domain").order("name"),
+    supabase.from("tickets").select("company_id, status").not("company_id", "is", null),
+    supabase.from("profiles").select("company_id").not("company_id", "is", null),
+  ]);
+  const tally = new Map<string, { total: number; active: number; people: number }>();
+  const get = (id: string) => tally.get(id) ?? tally.set(id, { total: 0, active: 0, people: 0 }).get(id)!;
+  for (const r of ticketRows ?? []) {
+    const t = get(r.company_id as string);
+    t.total++;
+    if (r.status !== "resolved") t.active++;
+  }
+  for (const r of memberRows ?? []) get(r.company_id as string).people++;
+  const companies = (companyRows ?? [])
+    .map((co) => ({ ...co, ...(tally.get(co.id) ?? { total: 0, active: 0, people: 0 }) }))
+    .sort((a, b) => b.active - a.active || b.total - a.total || a.name.localeCompare(b.name));
+
   return (
     <AppShell profile={profile} current="dashboard">
       <h1 className="psd-title mb-6 text-[28px] font-bold tracking-[-0.025em]">Dashboard</h1>
@@ -53,6 +71,35 @@ export default async function DashboardPage() {
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="psd-card mt-8 overflow-hidden rounded-2xl">
+        <h2 className="px-6 pb-3 pt-5 text-[15px] font-semibold">Companies</h2>
+        {companies.length === 0 ? (
+          <p className="px-6 pb-6 text-[14px] text-[#a0a0b8]">No client companies yet. They appear as clients sign up.</p>
+        ) : (
+          <ul className="divide-y divide-white/[0.06] border-t border-white/[0.06]">
+            {companies.map((co) => (
+              <li key={co.id}>
+                <Link
+                  href={`/tickets?company=${co.id}`}
+                  className="flex flex-wrap items-center gap-x-6 gap-y-1 px-6 py-3.5 hover:bg-white/[0.03]"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium text-[#f0f0f5]">{co.name}</span>
+                    <span className="text-[12px] text-[#6b6b8a]">
+                      {co.domain ? `@${co.domain}` : "Personal email"} · {co.people} {co.people === 1 ? "person" : "people"}
+                    </span>
+                  </span>
+                  <span className="text-[13px] text-[#a0a0b8]">
+                    <span className="font-semibold text-[#f0f0f5]">{co.active}</span> active
+                  </span>
+                  <span className="w-20 text-right text-[13px] text-[#6b6b8a]">{co.total} total</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </AppShell>
   );

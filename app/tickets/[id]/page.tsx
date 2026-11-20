@@ -34,7 +34,8 @@ type Ticket = {
   created_at: string;
   assignee_id: string | null;
   pending_email: string | null;
-  client: Person;
+  client: (NonNullable<Person> & { phone: string; phone2: string }) | null;
+  company: { name: string } | null;
   assignee: Person;
 };
 type Reply = { id: string; body: string; body_html: string | null; created_at: string; author: Person };
@@ -76,7 +77,7 @@ export default async function TicketPage({
     supabase
       .from("tickets")
       .select(
-        `id, number, subject, body, body_html, status, priority, created_at, assignee_id, pending_email, client:profiles!tickets_client_id_fkey(${PERSON}), assignee:profiles!tickets_assignee_id_fkey(${PERSON})`,
+        `id, number, subject, body, body_html, status, priority, created_at, assignee_id, pending_email, company:companies(name), client:profiles!tickets_client_id_fkey(${PERSON}, phone, phone2), assignee:profiles!tickets_assignee_id_fkey(${PERSON})`,
       )
       .eq("id", id)
       .maybeSingle(),
@@ -198,6 +199,17 @@ export default async function TicketPage({
         </section>
 
         <aside className="flex flex-col gap-4">
+          {admin && t.client && (
+            <div className="psd-panel rounded-2xl p-5 text-sm">
+              <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wider text-[#a0a0b8]">Client</h2>
+              <p className="font-medium text-[#f0f0f5]">{displayName(t.client)}</p>
+              {t.company && <p className="text-[#a0a0b8]">{t.company.name}</p>}
+              <a href={`mailto:${t.client.email}`} className="mt-2 block break-all text-[#c4b5fd] hover:underline">{t.client.email}</a>
+              {[t.client.phone, t.client.phone2].filter(Boolean).map((p) => (
+                <a key={p} href={`tel:${p.replace(/[^d+]/g, "")}`} className="block tabular-nums text-[#d0d0e0] hover:text-white">{p}</a>
+              ))}
+            </div>
+          )}
           {admin && (
             <div className="psd-panel flex flex-col gap-4 rounded-2xl p-5">
               <form action={changeStatus.bind(null, t.id)} className="flex items-center gap-2">

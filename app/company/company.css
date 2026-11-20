@@ -1,0 +1,32 @@
+/* Company page — reuses .nt-card / .nt-input / .nt-submit from ticket-form.css. */
+.co-card { margin-bottom: 20px; }
+.co-h2 { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; color: #f0f0f5; margin: 0; }
+.co-sub { margin: 4px 0 16px; font-size: 14px; color: #a8a8c4; }
+.co-count { font-size: 12px; font-weight: 600; color: #c4b5fd; background: rgba(139, 92, 246, 0.16); border-radius: 999px; padding: 1px 8px; }
+.co-link { color: #c4b5fd; text-decoration: underline; text-underline-offset: 3px; }
+
+.co-form { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+.co-field { display: flex; flex-direction: column; gap: 6px; }
+.co-label { font-size: 13px; font-weight: 600; color: #e4e4f0; }
+.co-opt { font-weight: 400; color: #8a8aa6; font-size: 12px; margin-left: 4px; }
+.co-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.co-ok { margin: 0; font-size: 13px; color: #86efac; }
+.co-err { margin: 0; font-size: 13px; color: #fca5a5; }
+
+.co-list { list-style: none; margin: 12px 0 0; padding: 0; }
+.co-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid #2a2a40; }
+.co-row:first-child { border-top: 0; }
+.co-who { display: flex; flex-direction: column; min-width: 0; }
+.co-name { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #f0f0f5; }
+.co-you { font-size: 11px; font-weight: 600; color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.4); border-radius: 999px; padding: 0 7px; }
+.co-mail { font-size: 13px; color: #a8a8c4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-mail:hover, .co-phone:hover { color: #f0f0f5; }
+.co-phones { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 13px; }
+.co-phone { color: #d0d0e0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.co-none { color: #6b6b8a; }
+
+@media (max-width: 560px) {
+  .co-form { grid-template-columns: 1fr; }
+  .co-row { flex-direction: column; align-items: flex-start; }
+  .co-phones { align-items: flex-start; }
+}
