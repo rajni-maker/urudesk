@@ -170,3 +170,33 @@
   .nt-actions { flex-direction: column-reverse; align-items: stretch; }
   .nt-cancel, .nt-submit { text-align: center; }
 }
+
+/* Ticket detail sidebar — same surface as the form card so each block reads as
+   its own panel against the page. */
+.side-card {
+  background: #15152e;
+  border: 1px solid #2a2a4a;
+  border-radius: 14px;
+  padding: 18px 20px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
+}
+.side-title {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9a9ab8;
+}
+.ts-card { display: flex; flex-direction: column; gap: 14px;
+  background: #15152e; border: 1px solid #2a2a4a; border-radius: 14px; padding: 18px 20px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25); }
+.ts-title { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #9a9ab8; }
+.ts-field { display: flex; flex-direction: column; gap: 6px; }
+.ts-label { font-size: 13px; font-weight: 600; color: #d0d0e0; }
+.ts-select { padding-right: 36px; cursor: pointer; font-size: 14px; }
+.ts-save { width: 100%; margin-top: 4px; }
+.ts-msg { margin: -4px 0 0; min-height: 18px; font-size: 12.5px; text-align: center; }
+.ts-ok { color: #86efac; }
+.ts-err { color: #fca5a5; }
+.ts-hint { color: #9a9ab8; }

@@ -281,3 +281,36 @@ export async function assignTicket(ticketId: string, formData: FormData) {
   revalidatePath(`/tickets/${ticketId}`);
   revalidatePath("/tickets");
 }
+
+export type SettingsState = { error: string } | { saved: true } | null;
+
+/** One "Save changes" for the ticket sidebar. Only fields that differ from the
+ * values the form was rendered with are applied. Status goes first so an
+ * explicit choice (e.g. Resolved) isn't overridden by the assign rule, which
+ * only moves Open → In progress. */
+export async function updateTicketSettings(
+  ticketId: string,
+  _prev: SettingsState,
+  formData: FormData,
+): Promise<SettingsState> {
+  const field = (k: string) => String(formData.get(k) ?? "");
+  const one = (k: string, v: string) => {
+    const fd = new FormData();
+    fd.set(k, v);
+    return fd;
+  };
+  try {
+    if (field("status") !== field("origStatus")) {
+      await changeStatus(ticketId, one("status", field("status")));
+    }
+    if (field("priority") !== field("origPriority")) {
+      await changePriority(ticketId, one("priority", field("priority")));
+    }
+    if (field("assigneeId") !== field("origAssigneeId")) {
+      await assignTicket(ticketId, one("assigneeId", field("assigneeId")));
+    }
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Couldn't save the changes." };
+  }
+  return { saved: true };
+}

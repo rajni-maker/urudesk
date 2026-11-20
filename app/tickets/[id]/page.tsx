@@ -15,7 +15,7 @@ import {
   type TicketStatus,
   type TicketPriority,
 } from "@/lib/tickets";
-import { assignTicket, changePriority, changeStatus } from "../actions";
+import TicketSettings from "@/components/tickets/TicketSettings";
 import ReplyBox from "@/components/tickets/ReplyBox";
 import { sanitizeTicketHtml } from "@/lib/richtext";
 import { formatBytes } from "@/lib/attachments";
@@ -200,54 +200,39 @@ export default async function TicketPage({
 
         <aside className="flex flex-col gap-4">
           {admin && t.client && (
-            <div className="psd-panel rounded-2xl p-5 text-sm">
-              <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wider text-[#a0a0b8]">Client</h2>
+            <div className="side-card text-sm">
+              <h2 className="side-title">Client</h2>
               <p className="font-medium text-[#f0f0f5]">{displayName(t.client)}</p>
               {t.company && <p className="text-[#a0a0b8]">{t.company.name}</p>}
               <a href={`mailto:${t.client.email}`} className="mt-2 block break-all text-[#c4b5fd] hover:underline">{t.client.email}</a>
               {[t.client.phone, t.client.phone2].filter(Boolean).map((p) => (
-                <a key={p} href={`tel:${p.replace(/[^d+]/g, "")}`} className="block tabular-nums text-[#d0d0e0] hover:text-white">{p}</a>
+                <a key={p} href={`tel:${p.replace(/[^0-9+]/g, "")}`} className="block tabular-nums text-[#d0d0e0] hover:text-white">{p}</a>
               ))}
             </div>
           )}
           {admin && (
-            <div className="psd-panel flex flex-col gap-4 rounded-2xl p-5">
-              <form action={changeStatus.bind(null, t.id)} className="flex items-center gap-2">
-                <select name="status" defaultValue={t.status} className="psd-select flex-1">
-                  {STATUS_OPTIONS.map((s) => (
-                    <option key={s} value={s}>{STATUS_LABELS[s]}</option>
-                  ))}
-                </select>
-                <button type="submit" className="psd-action rounded-xl px-3 py-2 text-sm">Set status</button>
-              </form>
-              <form action={changePriority.bind(null, t.id)} className="flex items-center gap-2">
-                <select name="priority" defaultValue={t.priority} className="psd-select flex-1">
-                  {PRIORITY_OPTIONS.map((p) => (
-                    <option key={p} value={p}>{PRIORITY_LABELS[p]}</option>
-                  ))}
-                </select>
-                <button type="submit" className="psd-action rounded-xl px-3 py-2 text-sm">Set priority</button>
-              </form>
-              <form action={assignTicket.bind(null, t.id)} className="flex items-center gap-2">
-                <select name="assigneeId" defaultValue={t.assignee_id ?? ""} className="psd-select flex-1">
-                  <option value="">Unassigned</option>
-                  {(admins ?? []).map((a) => (
-                    <option key={a.id} value={a.id}>{displayName(a)}</option>
-                  ))}
-                </select>
-                <button type="submit" className="psd-action rounded-xl px-3 py-2 text-sm">Assign</button>
-              </form>
-            </div>
+            <TicketSettings
+              ticketId={t.id}
+              status={t.status}
+              priority={t.priority}
+              assigneeId={t.assignee_id ?? ""}
+              statusOptions={STATUS_OPTIONS.map((v) => ({ value: v, label: STATUS_LABELS[v] }))}
+              priorityOptions={PRIORITY_OPTIONS.map((v) => ({ value: v, label: PRIORITY_LABELS[v] }))}
+              assigneeOptions={[
+                { value: "", label: "Unassigned" },
+                ...(admins ?? []).map((a) => ({ value: a.id, label: displayName(a) })),
+              ]}
+            />
           )}
 
           {!admin && (
-            <div className="psd-panel rounded-2xl p-5 text-sm text-[#a0a0b8]">
+            <div className="side-card text-sm text-[#a0a0b8]">
               Assigned to: <span className="text-[#f0f0f5]">{t.assignee ? displayName(t.assignee) : "Not yet"}</span>
             </div>
           )}
 
-          <div className="psd-panel rounded-2xl p-5">
-            <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-[#6b6b8a]">History</h2>
+          <div className="side-card">
+            <h2 className="side-title">History</h2>
             <ul className="flex flex-col gap-2 text-[13px] text-[#a0a0b8]">
               {((events ?? []) as unknown as Event[]).map((e) => (
                 <li key={e.id}>
